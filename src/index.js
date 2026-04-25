@@ -21,6 +21,7 @@ const fs   = require('fs');
 const { connectDB }      = require('./database');
 const { startKeepAlive } = require('./keepalive');
 const User               = require('./models/User');
+const GuildConfig        = require('./models/Guild');
 
 // ─── Khởi tạo Discord Client ─────────────────────────────────────────────────
 
@@ -38,19 +39,26 @@ client.commands = new Collection();
 // ─── Load Command Files ──────────────────────────────────────────────────────
 
 const commandsDir   = path.join(__dirname, 'commands');
-const commandFiles  = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'));
-
-for (const file of commandFiles) {
-  const cmd = require(path.join(commandsDir, file));
-  if (cmd.data && cmd.execute) {
-    client.commands.set(cmd.data.name, cmd);
-    console.log(`  ✅ Loaded: /${cmd.data.name}`);
+const loadCommands = (dir) => {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      loadCommands(fullPath);
+    } else if (file.endsWith('.js')) {
+      const cmd = require(fullPath);
+      if (cmd.data && (cmd.execute || cmd.executeMessage)) {
+        client.commands.set(cmd.data.name, cmd);
+        console.log(`  ✅ Loaded: /${cmd.data.name}`);
+      }
+    }
   }
-}
+};
+loadCommands(commandsDir);
 
 // ─── Event: Bot sẵn sàng ────────────────────────────────────────────────────
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log(`\n✨ ${client.user.tag} đã đăng nhập thành công!`);
   console.log(`📡 Đang phục vụ ${client.guilds.cache.size} server(s)\n`);
 
@@ -67,7 +75,7 @@ client.on('messageCreate', async (message) => {
   // Bỏ qua bot và tin nhắn DMs
   if (!message.guild || message.author.bot) return;
   
-  const prefix = '!';
+  const prefix = '.';
   if (!message.content.startsWith(prefix)) return;
 
   // Tách tên lệnh và tham số
@@ -77,8 +85,17 @@ client.on('messageCreate', async (message) => {
   const cmd = client.commands.get(commandName);
   if (!cmd) return;
 
-  // Kiểm tra user có bị ban không
+  // Kiểm tra kênh và user có bị ban không (bỏ qua lệnh admin)
   if (commandName !== 'admin') {
+    // 1. Kiểm tra Kênh (Channel)
+    const guildConfig = await GuildConfig.findOne({ guildId: message.guild.id }).lean();
+    if (guildConfig && guildConfig.allowedChannels && guildConfig.allowedChannels.length > 0) {
+      if (!guildConfig.allowedChannels.includes(message.channel.id)) {
+        return; // Im lặng bỏ qua để tránh spam kênh không được phép
+      }
+    }
+
+    // 2. Kiểm tra Banned User
     const dbUser = await User.findOne({ userId: message.author.id, guildId: message.guild.id }).lean();
     if (dbUser?.banned) {
       return message.reply(`🔨 Bạn đã bị cấm sử dụng bot.\n📝 Lý do: *${dbUser.banReason || 'Không có lý do'}*`);
@@ -90,7 +107,7 @@ client.on('messageCreate', async (message) => {
     if (cmd.executeMessage) {
       await cmd.executeMessage(message, args);
     } else {
-      message.reply('⚠️ Lệnh này đang được nâng cấp để hỗ trợ dấu `!`. Vui lòng dùng lệnh gạch chéo `/` tạm thời nhé!');
+      message.reply('⚠️ Lệnh này đang được nâng cấp để hỗ trợ dấu `.`. Vui lòng dùng lệnh gạch chéo `/` tạm thời nhé!');
     }
   } catch (err) {
     console.error(`[MessageError] ${commandName}:`, err);
@@ -105,11 +122,22 @@ client.on('interactionCreate', async (interaction) => {
     // Bỏ qua DM (bot chỉ hoạt động trong server)
     if (!interaction.guildId) return;
 
-    // Kiểm tra user có bị ban không (bỏ qua với admin commands)
-    if (
-      (interaction.isChatInputCommand() || interaction.isButton() || interaction.isStringSelectMenu()) &&
-      interaction.commandName !== 'admin'
-    ) {
+    // Kiểm tra kênh và user bị ban (bỏ qua các command/component của admin)
+    const isCmdAdmin = interaction.commandName === 'admin' || (interaction.customId && (interaction.customId.startsWith('admin') || interaction.customId.startsWith('menu:dev') || interaction.customId.startsWith('menu:modal')));
+    
+    if (!isCmdAdmin) {
+      // 1. Kiểm tra Kênh
+      const guildConfig = await GuildConfig.findOne({ guildId: interaction.guildId }).lean();
+      if (guildConfig && guildConfig.allowedChannels && guildConfig.allowedChannels.length > 0) {
+        if (!guildConfig.allowedChannels.includes(interaction.channelId)) {
+          if (interaction.isRepliable()) {
+            return interaction.reply({ content: `🚫 Tiệm bánh chỉ phục vụ tại các kênh: ${guildConfig.allowedChannels.map(id => `<#${id}>`).join(', ')}`, ephemeral: true });
+          }
+          return;
+        }
+      }
+
+      // 2. Kiểm tra Banned User
       const dbUser = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId })
         .select('banned banReason')
         .lean();
@@ -138,15 +166,18 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     // 3. Button và Select Menu — Router theo prefix của customId
-    if (interaction.isButton() || interaction.isStringSelectMenu()) {
-      let isOriginalUser = true;
+    if (interaction.isButton() || interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) {
+      // Mặc định khóa chặn mọi người (bảo mật tối đa)
+      let isOriginalUser = false;
       const msg = interaction.message;
 
-      // Nếu là tin nhắn phản hồi lệnh Slash Command
-      if (msg.interaction) {
+      // 1. Nếu là tin nhắn phản hồi Slash Command (Hỗ trợ Discord API mới nhất)
+      if (msg.interactionMetadata) {
+        isOriginalUser = msg.interactionMetadata.user.id === interaction.user.id;
+      } else if (msg.interaction) {
         isOriginalUser = msg.interaction.user.id === interaction.user.id;
       } 
-      // Nếu là tin nhắn phản hồi lệnh Prefix Command (!lệnh)
+      // 2. Nếu là tin nhắn phản hồi lệnh Prefix Command (.lệnh)
       else if (msg.reference && msg.reference.messageId) {
         if (msg.mentions && msg.mentions.repliedUser) {
           isOriginalUser = msg.mentions.repliedUser.id === interaction.user.id;
@@ -158,6 +189,10 @@ client.on('interactionCreate', async (interaction) => {
             isOriginalUser = false; // Lỗi không tìm thấy tin nhắn gốc (đã xóa), khóa nút cho an toàn
           }
         }
+      } 
+      // 3. Nếu là tin nhắn ẩn (Ephemeral) - mặc định chỉ người gọi mới thấy và bấm được
+      else if (msg.flags && msg.flags.has('Ephemeral')) {
+        isOriginalUser = true;
       }
 
       if (!isOriginalUser) {
@@ -166,7 +201,11 @@ client.on('interactionCreate', async (interaction) => {
 
       const prefix = interaction.customId.split(':')[0];
       const cmd    = client.commands.get(prefix);
-      if (cmd?.handleComponent) await cmd.handleComponent(interaction);
+      if (cmd?.handleComponent) {
+        await cmd.handleComponent(interaction);
+        const { refreshMenuTimeout } = require('./utils/gameUtils');
+        refreshMenuTimeout(interaction.message);
+      }
       return;
     }
 

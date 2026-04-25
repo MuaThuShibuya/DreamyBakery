@@ -14,6 +14,7 @@
  */
 
 const { INGREDIENTS, BAKED_GOODS, NPCS, NPC_PHRASES, LEVEL_TITLES } = require('./constants');
+const User = require('../models/User');
 
 // ─── Tra cứu vật phẩm ────────────────────────────────────────────────────────
 
@@ -221,9 +222,47 @@ function chunkArray(arr, size) {
   return chunks;
 }
 
+// ─── Hệ Thống Tài Chính (Atomic Update) ──────────────────────────────────────
+
+/**
+ * Cập nhật tiền tệ an toàn (chống Race Condition với Casino bot).
+ * Giới hạn Hard Cap 1 Tỷ Xu.
+ * @param {string} userId 
+ * @param {string} guildId 
+ * @param {number} amount (âm hoặc dương)
+ * @returns {Promise<number>} Số dư cuối cùng
+ */
+async function bakery_add_money(userId, guildId, amount) {
+  const MAX_COINS = 1000000000;
+  const user = await User.findOne({ userId, guildId }).select('coins').lean();
+  const current = user?.coins || 0;
+  
+  let finalAmount = amount;
+  if (amount > 0 && current + amount > MAX_COINS) finalAmount = MAX_COINS - current;
+  if (finalAmount !== 0) await User.updateOne({ userId, guildId }, { $inc: { coins: finalAmount } });
+  return current + finalAmount;
+}
+
+// ─── Quản Lý Timeout UI (Bảng Điều Khiển) ───────────────────────────────────
+
+const activeMenus = new Map();
+
+/**
+ * Đặt lại thời gian đếm ngược 60s để xóa nút của một tin nhắn (chống spam RAM).
+ * Tự động gọi mỗi khi có tương tác mới.
+ */
+function refreshMenuTimeout(msg) {
+  if (!msg || !msg.id) return;
+  if (activeMenus.has(msg.id)) clearTimeout(activeMenus.get(msg.id));
+  activeMenus.set(msg.id, setTimeout(() => {
+    if (msg.edit) msg.edit({ components: [] }).catch(() => {});
+    activeMenus.delete(msg.id);
+  }, 60000));
+}
+
 module.exports = {
   getItemInfo, maxCanMake, getAvailableRecipes,
   formatMs, expForLevel, calcLevel, levelProgress,
   progressBar, getLevelTitle, randomInt, isNewDay,
-  generateNpcOrders, chunkArray,
+  generateNpcOrders, chunkArray, bakery_add_money, refreshMenuTimeout,
 };

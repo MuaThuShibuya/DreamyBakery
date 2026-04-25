@@ -19,15 +19,22 @@ const fs   = require('fs');
 
 const commands     = [];
 const commandsDir  = path.join(__dirname, 'src', 'commands');
-const commandFiles = fs.readdirSync(commandsDir).filter(f => f.endsWith('.js'));
-
-for (const file of commandFiles) {
-  const cmd = require(path.join(commandsDir, file));
-  if (cmd.data) {
-    commands.push(cmd.data.toJSON());
-    console.log(`  📋 Đã thêm: /${cmd.data.name}`);
+const readCommands = (dir) => {
+  const files = fs.readdirSync(dir);
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      readCommands(fullPath);
+    } else if (file.endsWith('.js')) {
+      const cmd = require(fullPath);
+      if (cmd.data) {
+        commands.push(cmd.data.toJSON());
+        console.log(`  📋 Đã chuẩn bị: /${cmd.data.name}`);
+      }
+    }
   }
-}
+};
+readCommands(commandsDir);
 
 // ─── Gửi lên Discord REST API ────────────────────────────────────────────────
 

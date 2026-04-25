@@ -12,9 +12,9 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, errorEmbed, btn, row } = require('../utils/embeds');
-const { INGREDIENTS, BAKED_GOODS, COLORS, BAKED_KEYS, INGR_KEYS } = require('../utils/constants');
+const User = require('../../models/User');
+const { bakeryEmbed, errorEmbed, btn, row } = require('../../utils/embeds');
+const { INGREDIENTS, BAKED_GOODS, COLORS, BAKED_KEYS, INGR_KEYS } = require('../../utils/constants');
 
 // ─── Cấu hình trang ──────────────────────────────────────────────────────────
 
@@ -169,10 +169,9 @@ module.exports = {
         { $setOnInsert: { username: interaction.user.username } },
         { upsert: true, new: true },
       );
-      return interaction.reply({
+      return interaction.update({
         embeds:     [buildInvEmbed(user, 'ingredients')],
-        components: [buildNav('ingredients')],
-        ephemeral:  true,
+        components: [buildNav('ingredients'), row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'))],
       });
     }
 
@@ -181,9 +180,13 @@ module.exports = {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       if (!user) return interaction.update({ embeds: [errorEmbed('Bạn chưa có tài khoản!')], components: [] });
 
+      const hasBack = interaction.message.components.length > 1;
+      const comps = [buildNav(page)];
+      if (hasBack) comps.push(row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary')));
+
       return interaction.update({
         embeds:     [buildInvEmbed(user, page)],
-        components: [buildNav(page)],
+        components: comps,
       });
     }
   },

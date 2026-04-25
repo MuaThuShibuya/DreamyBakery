@@ -50,6 +50,8 @@ const petSchema = new mongoose.Schema({
   name:   { type: String, required: true },
   level:  { type: Number, default: 1 },
   exp:    { type: Number, default: 0 },
+  // Phẩm chất Sao (Tăng khi ăn bánh Thượng Hạng)
+  stars:  { type: Number, default: 0 },
   // Chỉ số hiện tại (tăng theo cấp và khi cho ăn bánh)
   stats:  { hp: Number, atk: Number, def: Number, spd: Number }
 }); // Có _id tự động để phân biệt các con pet trùng loại
@@ -108,11 +110,17 @@ const userSchema = new mongoose.Schema({
   /** Tổng điểm EXP (dùng calcLevel() để tính cấp độ) */
   exp:   { type: Number, default: 0 },
 
+  /** Máu của người chơi (dùng cho lệnh chọi bánh !nem) */
+  hp:    { type: Number, default: 100 },
+
   /** Số tiền nợ (vay từ admin) */
   debt:  { type: Number, default: 0 },
 
   /** Quyền Chủ Shop (Được DEV cấp phép) */
   isShopOwner: { type: Boolean, default: false },
+
+  /** Quyền Tự Bơm Tiền (Được DEV cấp phép) */
+  canSpawnCoins: { type: Boolean, default: false },
 
   /** Danh sách thú cưng đang sở hữu */
   pets: {
@@ -152,6 +160,8 @@ const userSchema = new mongoose.Schema({
     garden: { type: Date, default: null },
     farm:   { type: Date, default: null },
     sneak:  { type: Date, default: null },
+    pet_force: { type: Date, default: null },
+    daily:  { type: Date, default: null },
   },
 
   /** Thống kê tổng hợp (dùng cho bảng xếp hạng và hồ sơ) */

@@ -15,8 +15,8 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const { bakeryEmbed, btn, row } = require('../utils/embeds');
-const { BAKED_GOODS, INGREDIENTS, COLORS } = require('../utils/constants');
+const { bakeryEmbed, btn, row } = require('../../utils/embeds');
+const { BAKED_GOODS, INGREDIENTS, COLORS } = require('../../utils/constants');
 
 // ─── Hằng số phân trang ───────────────────────────────────────────────────────
 
@@ -70,11 +70,13 @@ function buildPage(page) {
  * @param {number} page - Trang hiện tại (0-indexed)
  * @returns {ActionRowBuilder}
  */
-function buildNav(page) {
-  return row(
+function buildNav(page, hasBack = false) {
+  const r = row(
     btn('cookbook:page:prev', '◀ Trang Trước', 'Secondary', page === 0),
     btn('cookbook:page:next', '▶ Trang Tiếp',  'Secondary', page === TOTAL_PAGES - 1),
   );
+  if (hasBack) r.addComponents(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'));
+  return r;
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -98,8 +100,17 @@ module.exports = {
    * customId: cookbook:page:prev | cookbook:page:next
    */
   async handleComponent(interaction) {
-    const dir = interaction.customId.split(':')[2]; // 'prev' hoặc 'next'
+    const parts = interaction.customId.split(':');
+    const action = parts[1];
 
+    if (action === 'open') {
+      return interaction.update({
+        embeds:     [buildPage(0)],
+        components: [buildNav(0, true)],
+      });
+    }
+
+    const dir = parts[2]; // 'prev' hoặc 'next'
     // Đọc số trang từ tiêu đề embed (VD: "Trang 2/4" → 2 → index 1)
     const titleMatch = interaction.message.embeds[0]?.title?.match(/Trang (\d+)/);
     const current    = titleMatch ? parseInt(titleMatch[1]) - 1 : 0;
@@ -109,7 +120,7 @@ module.exports = {
 
     await interaction.update({
       embeds:     [buildPage(next)],
-      components: [buildNav(next)],
+      components: [buildNav(next, true)],
     });
   },
 };

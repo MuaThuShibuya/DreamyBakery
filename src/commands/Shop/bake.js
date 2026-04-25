@@ -20,10 +20,11 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../utils/embeds');
-const { BAKED_GOODS, INGREDIENTS, COLORS, UPGRADES } = require('../utils/constants');
-const { getAvailableRecipes, maxCanMake, formatMs } = require('../utils/gameUtils');
+const User = require('../../models/User');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../../utils/embeds');
+const { BAKED_GOODS, INGREDIENTS, COLORS, UPGRADES } = require('../../utils/constants');
+const { getAvailableRecipes, maxCanMake, formatMs } = require('../../utils/gameUtils');
+const { isShopOrAbove } = require('../../utils/permissions');
 
 /** Số job tối đa trong hàng đợi lò cùng lúc */
 const MAX_QUEUE = 5;
@@ -47,22 +48,23 @@ function buildBakeMenu(recipes) {
 
 /**
  * Xây hàng nút chọn số lượng dựa trên số lượng tối đa có thể làm.
- * Hiển thị các mốc cố định (×1, ×3, ×5) nếu có thể, và nút Max riêng.
+ * Tách làm 2 hàng để tránh lỗi quá 5 nút/hàng trên Discord.
  * @param {string} itemKey - Key của loại bánh
  * @param {number} maxQty  - Số lượng tối đa user có thể làm
- * @returns {ActionRowBuilder}
+ * @returns {ActionRowBuilder[]}
  */
-function buildQtyRow(itemKey, maxQty) {
-  // Chỉ thêm mốc nếu maxQty đủ lớn, tránh nút bị disable ngay
+function buildQtyRow(itemKey, maxQty, hasBack = false) {
   const fixed = [1, 3, 5].filter(q => q <= maxQty);
-  const btns  = fixed.map(q => btn(`bake:qty:${itemKey}:${q}`, `×${q}`, 'Primary'));
+  const row1Btns  = fixed.map(q => btn(`bake:qty:${itemKey}:${q}`, `×${q}`, 'Primary'));
 
-  // Thêm nút Max nếu maxQty không trùng với các mốc cố định
   if (maxQty > 0 && !fixed.includes(maxQty)) {
-    btns.push(btn(`bake:qty:${itemKey}:${maxQty}`, `×${maxQty} (Tối đa)`, 'Success'));
+    row1Btns.push(btn(`bake:qty:${itemKey}:${maxQty}`, `×${maxQty} (Tối đa)`, 'Success'));
   }
-  btns.push(btn('bake:cancel', '❌ Hủy', 'Danger'));
-  return row(...btns.slice(0, 5)); // Discord giới hạn 5 component mỗi row
+  
+  const row2Btns = [btn('bake:cancel', '❌ Hủy', 'Danger')];
+  if (hasBack) row2Btns.push(btn('bake:open', '◀ Quay Lại', 'Secondary'));
+  
+  return [row(...row1Btns), row(...row2Btns)];
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -79,18 +81,20 @@ module.exports = {
       { $setOnInsert: { username: message.author.username } },
       { upsert: true, new: true },
     );
+    
+    if (!isShopOrAbove(message.author.id, user)) return message.reply({ embeds: [errorEmbed('🔒 Bạn phải là **Chủ Shop** mới có thể sử dụng Lò Nướng!')] });
 
     const activeJobs = (user.bakingQueue || []).filter(j => new Date(j.finishTime) > new Date()).length;
     if (activeJobs >= MAX_QUEUE) {
       return message.reply({
-        embeds: [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`!oven\` để lấy bánh đã xong trước nhé! 🔥`)],
+        embeds: [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`.oven\` để lấy bánh đã xong trước nhé! 🔥`)],
       });
     }
 
     const recipes = getAvailableRecipes(user.inventory);
     if (!recipes.length) {
       return message.reply({
-        embeds: [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `!garden` và `!farm` để thu hoạch thêm nhé 🌿')],
+        embeds: [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `.garden` và `.farm` để thu hoạch thêm nhé 🌿')],
       });
     }
 
@@ -123,11 +127,15 @@ module.exports = {
       { upsert: true, new: true },
     );
 
+    if (!isShopOrAbove(interaction.user.id, user)) {
+      return interaction.reply({ embeds: [errorEmbed('🔒 Bạn phải là **Chủ Shop** mới có thể sử dụng Lò Nướng!')], ephemeral: true });
+    }
+
     // Đếm số job đang còn nướng (chưa xong)
     const activeJobs = (user.bakingQueue || []).filter(j => new Date(j.finishTime) > new Date()).length;
     if (activeJobs >= MAX_QUEUE) {
       return interaction.reply({
-        embeds:    [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`!oven\` để lấy bánh đã xong trước nhé! 🔥`)],
+        embeds:    [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`.oven\` để lấy bánh đã xong trước nhé! 🔥`)],
         ephemeral: true,
       });
     }
@@ -135,7 +143,7 @@ module.exports = {
     const recipes = getAvailableRecipes(user.inventory);
     if (!recipes.length) {
       return interaction.reply({
-        embeds:    [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `!garden` và `!farm` để thu hoạch thêm nhé 🌿')],
+        embeds:    [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `.garden` và `.farm` để thu hoạch thêm nhé 🌿')],
         ephemeral: true,
       });
     }
@@ -170,6 +178,12 @@ module.exports = {
     const parts  = interaction.customId.split(':');
     const action = parts[1];
 
+    // Kiểm tra bảo mật Back-end chặn Nông Dân lách luật qua API
+    const userSec = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+    if (!isShopOrAbove(interaction.user.id, userSec)) {
+      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới có thể Nướng Bánh.')], ephemeral: true });
+    }
+
     // ── Mở từ menu ─────────────────────────────────────────────────────────
     if (action === 'open') {
       const user = await User.findOneAndUpdate(
@@ -179,13 +193,13 @@ module.exports = {
       );
       const activeJobs = (user.bakingQueue || []).filter(j => new Date(j.finishTime) > new Date()).length;
       if (activeJobs >= MAX_QUEUE) {
-        return interaction.reply({ embeds: [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`!oven\` để lấy bánh đã xong trước nhé! 🔥`)], ephemeral: true });
+        return interaction.update({ embeds: [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`.oven\` để lấy bánh đã xong trước nhé! 🔥`)], components: [row(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'))] });
       }
       const recipes = getAvailableRecipes(user.inventory);
       if (!recipes.length) {
-        return interaction.reply({ embeds: [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `!garden` và `!farm` để thu hoạch thêm nhé 🌿')], ephemeral: true });
+        return interaction.update({ embeds: [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `.garden` và `.farm` để thu hoạch thêm nhé 🌿')], components: [row(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'))] });
       }
-      return interaction.reply({
+      return interaction.update({
         embeds: [bakeryEmbed(
           '🔥 Xưởng Nướng Bánh',
           [
@@ -195,7 +209,7 @@ module.exports = {
             `Bạn đủ nguyên liệu cho **${recipes.length}** loại bánh:`
           ].join('\n'), COLORS.warning
         )],
-        components: [row(buildBakeMenu(recipes))], ephemeral: true
+        components: [row(buildBakeMenu(recipes)), row(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'))]
       });
     }
 
@@ -203,14 +217,16 @@ module.exports = {
     if (action === 'item_select') {
       const itemKey  = interaction.values[0];
       const itemData = BAKED_GOODS[itemKey];
-      if (!itemData) return interaction.update({ embeds: [errorEmbed('Loại bánh không tồn tại!')], components: [] });
+      if (!itemData) return interaction.update({ embeds: [errorEmbed('Loại bánh không tồn tại!')], components: [row(btn('bake:open', '◀ Quay Lại', 'Secondary'))] });
 
       const user   = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const maxQty = maxCanMake(user.inventory, itemData.recipe);
 
       if (maxQty === 0) {
-        return interaction.update({ embeds: [errorEmbed('Nguyên liệu không còn đủ!')], components: [] });
+        return interaction.update({ embeds: [errorEmbed('Nguyên liệu không còn đủ!')], components: [row(btn('bake:open', '◀ Quay Lại', 'Secondary'))] });
       }
+
+      const hasBack = interaction.message.components.length > 1; // if menu back button is present
 
       // Hiển thị chi tiết công thức cho 1 cái
       const ingrLines = Object.entries(itemData.recipe).map(([k, v]) =>
@@ -229,10 +245,12 @@ module.exports = {
             `✨ **Tỉ lệ Thượng Hạng:** ${(itemData.shinyChance * 100).toFixed(0)}%`,
             '',
             `Chọn số lượng muốn nướng *(tối đa: **${maxQty}** cái)*:`,
+            '',
+            `> 💡 **Mẹo:** Bánh Thượng Hạng thường xuất hiện khi bạn nướng số lượng lớn (Tối đa)!`,
           ].join('\n'),
           COLORS.warning,
         )],
-        components: [buildQtyRow(itemKey, maxQty)],
+        components: buildQtyRow(itemKey, maxQty, hasBack),
       });
     }
 
@@ -246,7 +264,7 @@ module.exports = {
       const canMake = maxCanMake(user.inventory, itemData.recipe);
 
       if (canMake < qty) {
-        return interaction.update({ embeds: [errorEmbed('Nguyên liệu không đủ!')], components: [] });
+        return interaction.update({ embeds: [errorEmbed('Nguyên liệu không đủ!')], components: [row(btn('bake:open', '◀ Quay Lại', 'Secondary'))] });
       }
 
       // Tính thời gian với bonus lò nướng
@@ -260,8 +278,10 @@ module.exports = {
       );
 
       const timeNote = ovenLvl > 0
-        ? ` *(đã giảm ${100 - Math.round(timeMult * 100)}% nhờ lò cấp ${ovenLvl})*`
+        ? `\n*(Lò cấp ${ovenLvl} giảm ${100 - Math.round(timeMult * 100)}% thời gian)*`
         : '';
+        
+      const hasBack = interaction.message.components[0].components.some(c => c.customId === 'bake:open');
 
       await interaction.update({
         embeds: [bakeryEmbed(
@@ -272,7 +292,7 @@ module.exports = {
             `**📋 Nguyên liệu sẽ dùng:**`,
             ...ingrLines,
             '',
-            `⏱️ **Thời gian:** ${totalMinutes} phút${timeNote}`,
+            `⏱️ **Thời gian:** ${totalMinutes > 0 ? `${totalMinutes} phút` : 'Ngay lập tức (Instant)'}${timeNote}`,
             `✨ **Tỉ lệ Thượng Hạng:** ${(itemData.shinyChance * 100).toFixed(0)}%`,
             `💰 **Giá bán:** ${itemData.basePrice} xu  *(Thượng Hạng: ${itemData.shinyPrice} xu)*`,
           ].join('\n'),
@@ -281,6 +301,7 @@ module.exports = {
         components: [row(
           btn(`bake:confirm:${itemKey}:${qty}`, '✅ Bắt Đầu Nướng!', 'Success'),
           btn('bake:cancel',                     '❌ Hủy',            'Danger'),
+          ...(hasBack ? [btn('bake:open', '◀ Quay Lại', 'Secondary')] : [])
         )],
       });
     }
@@ -298,13 +319,13 @@ module.exports = {
 
       // Re-validate: hàng đợi có thể đầy nếu user mở nhiều tab
       if (activeJobs >= MAX_QUEUE) {
-        return interaction.editReply({ embeds: [errorEmbed('Lò nướng đầy rồi! Dùng `!oven` để lấy bánh trước.')], components: [] });
+        return interaction.editReply({ embeds: [errorEmbed('Lò nướng đầy rồi! Dùng `.oven` để lấy bánh trước.')], components: [row(btn('bake:open', '◀ Quay Lại', 'Secondary'))] });
       }
 
       // Re-validate: nguyên liệu có thể thay đổi (bị trộm, giao hàng NPC, v.v.)
       const canMake = maxCanMake(user.inventory, itemData.recipe);
       if (canMake < qty) {
-        return interaction.editReply({ embeds: [errorEmbed('Nguyên liệu không đủ! Có thể ai đó vừa trộm mất 😱')], components: [] });
+        return interaction.editReply({ embeds: [errorEmbed('Nguyên liệu không đủ! Có thể ai đó vừa trộm mất 😱')], components: [row(btn('bake:open', '◀ Quay Lại', 'Secondary'))] });
       }
 
       // Trừ nguyên liệu từ kho
@@ -313,11 +334,34 @@ module.exports = {
       }
       user.markModified('inventory');
 
-      // Roll shiny cho cả batch (1 lần duy nhất)
-      const isShiny    = Math.random() < itemData.shinyChance;
-      const ovenLvl    = user.upgrades.oven || 0;
-      const timeMult   = UPGRADES.oven.timeReduction(ovenLvl);
-      const ms         = Math.ceil(itemData.bakeTime * timeMult) * 60_000;
+      const hasBack = interaction.message.components[0].components.some(c => c.customId === 'bake:open');
+      const isShiny = Math.random() < itemData.shinyChance;
+
+      // Bánh Basic = Instant Bake
+      if (itemData.bakeTime === 0) {
+        const invKey = isShiny ? `shiny_${itemKey}` : itemKey;
+        user.inventory[invKey] = (user.inventory[invKey] || 0) + qty;
+        user.stats.totalBaked += qty;
+        await user.save();
+        
+        return interaction.editReply({
+          embeds: [successEmbed(
+            '⚡ Nướng Thành Công Ngay Lập Tức!',
+            [
+              `${itemData.emoji} Bạn đã làm xong **${itemData.name}** × ${qty}!`,
+              isShiny ? '✨ **TUYỆT VỜI! Toàn bộ mẻ bánh này đạt phẩm chất Thượng Hạng!** 🌟' : '',
+              '',
+              `📦 Đã được cất tự động vào Kho Đồ.`,
+            ].filter(Boolean).join('\n'),
+          )],
+          components: hasBack ? [row(btn('bake:open', '◀ Tiếp tục nướng', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] : [],
+        });
+      }
+
+      // Bánh Premium = Đưa vào Lò Nướng (Queue)
+      const ovenLvl  = user.upgrades.oven || 0;
+      const timeMult = UPGRADES.oven.timeReduction(ovenLvl);
+      const ms       = Math.ceil(itemData.bakeTime * timeMult) * 60_000;
       const finishTime = new Date(Date.now() + ms);
 
       user.bakingQueue.push({ item: itemKey, quantity: qty, finishTime, isShiny });
@@ -332,18 +376,19 @@ module.exports = {
             isShiny ? '✨ *Cảm giác batch này sẽ ra bánh Thượng Hạng!* 🌟' : '',
             '',
             `⏱️ **Bánh xong sau:** \`${formatMs(ms)}\``,
-            `📋 Dùng \`!oven\` để theo dõi và lấy bánh!`,
+            `📋 Dùng \`.oven\` để theo dõi và lấy bánh!`,
           ].filter(Boolean).join('\n'),
         )],
-        components: [],
+        components: hasBack ? [row(btn('bake:open', '◀ Tiếp tục nướng', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] : [],
       });
     }
 
     // ── Hủy ─────────────────────────────────────────────────────────────────
     else if (action === 'cancel') {
+      const hasBack = interaction.message.components[0].components.some(c => c.customId === 'bake:open');
       await interaction.update({
         embeds:     [bakeryEmbed('❌ Đã Hủy', 'Bạn đã hủy việc nướng bánh.', COLORS.error)],
-        components: [],
+        components: hasBack ? [row(btn('bake:open', '◀ Nướng Bánh', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] : [],
       });
     }
   },

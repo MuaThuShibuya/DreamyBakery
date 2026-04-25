@@ -14,12 +14,12 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User       = require('../models/User');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../utils/embeds');
+const User       = require('../../models/User');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../../utils/embeds');
 const {
   MARKET_PRICES, INGREDIENTS, BAKED_GOODS,
   INGR_KEYS, BAKED_KEYS, COLORS,
-} = require('../utils/constants');
+} = require('../../utils/constants');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -121,6 +121,7 @@ function buildSellSelect(inventory) {
  * @param {string} prefix   — 'market:buy_qty' hoặc 'market:sell_qty'
  * @param {string} itemVal  — value của item (ví dụ 'chocolate' hoặc 'baked:layered_cake')
  * @param {number} max      — Số lượng tối đa có thể mua/bán
+ * @returns {ActionRowBuilder[]}
  */
 function buildQtyRow(prefix, itemVal, max) {
   const encoded = encodeURIComponent(itemVal);
@@ -129,8 +130,7 @@ function buildQtyRow(prefix, itemVal, max) {
   if (max > 0 && !sizes.includes(max)) {
     btns.push(btn(`${prefix}:${encoded}:${max}`, `×${max} Max`, 'Success'));
   }
-  btns.push(btn('market:cancel', '❌ Hủy', 'Danger'));
-  return row(...btns.slice(0, 5));
+  return [row(...btns), row(btn('market:cancel', '❌ Hủy', 'Danger'))];
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ module.exports = {
     if (action === 'open') {
       return interaction.reply({
         embeds:     [buildMarketEmbed()],
-        components: [row(btn('market:show_buy', '🛒 Mua Nguyên Liệu', 'Primary'), btn('market:show_sell', '💰 Bán Hàng', 'Success'))],
+        components: [row(btn('market:show_buy', '🛒 Mua Nguyên Liệu', 'Primary'), btn('market:show_sell', '💰 Bán Hàng', 'Success')), row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary'), btn('menu:close', '❌ Đóng', 'Danger'))],
         ephemeral:  true
       });
     }
@@ -197,12 +197,13 @@ module.exports = {
 
     // ── Quay lại màn chợ chính ───────────────────────────────────────────────
     if (action === 'back' || action === 'cancel') {
+      const hasBack = interaction.message.components.length > 1; // Dòng 2 chứa nút Quay lại Menu
+      const comps = [row(btn('market:show_buy', '🛒 Mua Nguyên Liệu', 'Primary'), btn('market:show_sell', '💰 Bán Hàng', 'Success'))];
+      if (hasBack) comps.push(row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary')));
+
       return interaction.update({
         embeds:     [buildMarketEmbed()],
-        components: [row(
-          btn('market:show_buy',  '🛒 Mua Nguyên Liệu', 'Primary'),
-          btn('market:show_sell', '💰 Bán Hàng',        'Success'),
-        )],
+        components: comps,
       });
     }
 
@@ -210,7 +211,7 @@ module.exports = {
     if (action === 'buy_item') {
       const itemKey = interaction.values[0];
       const price   = MARKET_PRICES[itemKey]?.buy;
-      if (!price) return interaction.update({ embeds: [errorEmbed('Item không hợp lệ!')], components: [] });
+      if (!price) return interaction.update({ embeds: [errorEmbed('Item không hợp lệ!')], components: [row(btn('market:show_buy', '◀ Quay Lại', 'Secondary'))] });
 
       const user   = await User.findOneAndUpdate(
         { userId: interaction.user.id, guildId: interaction.guildId },
@@ -221,7 +222,7 @@ module.exports = {
       const maxBuy = Math.floor(user.coins / price);
 
       if (maxBuy === 0) {
-        return interaction.update({ embeds: [errorEmbed(`Bạn không đủ xu để mua **${info.name}**!\nCần ít nhất **${price}** xu.`)], components: [] });
+        return interaction.update({ embeds: [errorEmbed(`Bạn không đủ xu để mua **${info.name}**!\nCần ít nhất **${price}** xu.`)], components: [row(btn('market:show_buy', '◀ Quay Lại', 'Secondary'))] });
       }
 
       await interaction.update({
@@ -233,10 +234,11 @@ module.exports = {
             `Tối đa có thể mua: **${maxBuy} cái**`,
             '',
             `Chọn số lượng:`,
+            `> 💡 **Mẹo:** Bột Vàng rất đắt nhưng là nguyên liệu thiết yếu để làm Bánh Vàng Huyền Thoại!`,
           ].join('\n'),
           COLORS.gold,
         )],
-        components: [buildQtyRow('market:buy_qty', itemKey, Math.min(maxBuy, 99))],
+        components: buildQtyRow('market:buy_qty', itemKey, Math.min(maxBuy, 99)),
       });
       return;
     }
@@ -262,7 +264,7 @@ module.exports = {
         label   = `${BAKED_GOODS[itemKey].emoji} ${BAKED_GOODS[itemKey].name}`;
       }
 
-      if (maxSell === 0) return interaction.update({ embeds: [errorEmbed('Bạn không có vật phẩm này!')], components: [] });
+      if (maxSell === 0) return interaction.update({ embeds: [errorEmbed('Bạn không có vật phẩm này!')], components: [row(btn('market:show_sell', '◀ Quay Lại', 'Secondary'))] });
 
       await interaction.update({
         embeds: [bakeryEmbed(
@@ -270,7 +272,7 @@ module.exports = {
           [`Giá bán: **${price} xu/cái**`, `Số lượng trong kho: **${maxSell}**`, '', `Chọn số lượng muốn bán:`].join('\n'),
           COLORS.gold,
         )],
-        components: [buildQtyRow('market:sell_qty', val, Math.min(maxSell, 99))],
+        components: buildQtyRow('market:sell_qty', val, Math.min(maxSell, 99)),
       });
       return;
     }
@@ -284,7 +286,7 @@ module.exports = {
       const total   = price * qty;
       const user    = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
 
-      if (user.coins < total) return interaction.editReply({ embeds: [errorEmbed('Không đủ xu!')], components: [] });
+      if (user.coins < total) return interaction.editReply({ embeds: [errorEmbed('Không đủ xu!')], components: [row(btn('market:show_buy', '◀ Quay Lại', 'Secondary'))] });
 
       user.coins           -= total;
       user.inventory[itemKey] = (user.inventory[itemKey] || 0) + qty;
@@ -298,7 +300,7 @@ module.exports = {
           `💸 Đã trả: **${total.toLocaleString('vi-VN')}** xu`,
           `💰 Xu còn lại: **${user.coins.toLocaleString('vi-VN')}** xu`,
         ].join('\n'))],
-        components: [],
+        components: [row(btn('market:show_buy', '🛒 Tiếp Tục Mua', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))],
       });
       return;
     }
@@ -327,7 +329,7 @@ module.exports = {
       }
 
       const has = user.inventory[invKey] || 0;
-      if (has < qty) return interaction.editReply({ embeds: [errorEmbed('Số lượng trong kho không đủ!')], components: [] });
+      if (has < qty) return interaction.editReply({ embeds: [errorEmbed('Số lượng trong kho không đủ!')], components: [row(btn('market:show_sell', '◀ Quay Lại', 'Secondary'))] });
 
       const earned = price * qty;
       user.inventory[invKey] = has - qty;
@@ -342,7 +344,7 @@ module.exports = {
           `💰 Nhận được: **${earned.toLocaleString('vi-VN')}** xu`,
           `💳 Tổng xu: **${user.coins.toLocaleString('vi-VN')}** xu`,
         ].join('\n'))],
-        components: [],
+        components: [row(btn('market:show_sell', '💰 Tiếp Tục Bán', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))],
       });
     }
   },

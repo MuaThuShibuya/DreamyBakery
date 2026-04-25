@@ -10,10 +10,10 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, btn, row } = require('../utils/embeds');
-const { calcLevel, getLevelTitle, COLORS } = require('../utils/gameUtils');
-const { COLORS: C } = require('../utils/constants');
+const User = require('../../models/User');
+const { bakeryEmbed, btn, row } = require('../../utils/embeds');
+const { calcLevel, getLevelTitle, COLORS } = require('../../utils/gameUtils');
+const { COLORS: C } = require('../../utils/constants');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -71,12 +71,14 @@ async function buildTopEmbed(type, guildId) {
 }
 
 /** Hàng nút chuyển đổi bảng xếp hạng. */
-function buildTopNav(current) {
-  return row(
+function buildTopNav(current, hasBack = false) {
+  const r = row(
     btn('top:coins', '💰 Giàu Nhất',    current === 'coins' ? 'Success'   : 'Secondary'),
     btn('top:exp',   '⭐ Cấp Cao Nhất', current === 'exp'   ? 'Success'   : 'Secondary'),
     btn('top:baked', '🧁 Nướng Nhiều',  current === 'baked' ? 'Success'   : 'Secondary'),
   );
+  if (hasBack) r.addComponents(btn('menu:section:social', '◀ Quay Lại', 'Secondary'));
+  return [r];
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -104,11 +106,11 @@ module.exports = {
     const type = interaction.customId.split(':')[1];
 
     if (type === 'open') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferUpdate();
       const embed = await buildTopEmbed('coins', interaction.guildId);
       return interaction.editReply({
         embeds:     [embed],
-        components: [buildTopNav('coins')],
+        components: buildTopNav('coins', true),
       });
     }
 
@@ -116,7 +118,7 @@ module.exports = {
     const embed = await buildTopEmbed(type, interaction.guildId);
     await interaction.editReply({
       embeds:     [embed],
-      components: [buildTopNav(type)],
+      components: buildTopNav(type),
     });
   },
 };

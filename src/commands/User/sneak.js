@@ -13,10 +13,10 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, errorEmbed, btn, row } = require('../utils/embeds');
-const { INGREDIENTS, COOLDOWNS, COLORS } = require('../utils/constants');
-const { formatMs, randomInt } = require('../utils/gameUtils');
+const User = require('../../models/User');
+const { bakeryEmbed, errorEmbed, btn, row } = require('../../utils/embeds');
+const { INGREDIENTS, COOLDOWNS, COLORS } = require('../../utils/constants');
+const { formatMs, randomInt } = require('../../utils/gameUtils');
 
 /** Nguyên liệu có thể bị trộm từ vườn */
 const STEALABLE = ['wheat', 'strawberry', 'rose'];

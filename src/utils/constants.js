@@ -48,19 +48,19 @@ const BAKED_GOODS = {
   strawberry_cupcake: {
     name: 'Cupcake Dâu',           emoji: '🧁',
     recipe: { wheat: 2, strawberry: 3, milk: 1, egg: 1 },
-    bakeTime: 5, basePrice: 50, shinyPrice: 150, shinyChance: 0.05,
+    bakeTime: 0, basePrice: 50, shinyPrice: 150, shinyChance: 0.05,
     description: 'Cupcake ngọt ngào với dâu tây tươi mọng',
   },
   butter_croissant: {
     name: 'Croissant Bơ',          emoji: '🥐',
     recipe: { wheat: 3, butter: 2, egg: 1 },
-    bakeTime: 8, basePrice: 45, shinyPrice: 135, shinyChance: 0.05,
+    bakeTime: 0, basePrice: 45, shinyPrice: 135, shinyChance: 0.05,
     description: 'Bánh sừng bò giòn rụm thơm mùi bơ',
   },
   chocolate_donut: {
     name: 'Donut Chocolate',       emoji: '🍩',
     recipe: { wheat: 2, milk: 1, egg: 1, chocolate: 2 },
-    bakeTime: 10, basePrice: 80, shinyPrice: 240, shinyChance: 0.05,
+    bakeTime: 0, basePrice: 80, shinyPrice: 240, shinyChance: 0.05,
     description: 'Donut ngọt ngào phủ chocolate đậm đà',
   },
   macaroon: {

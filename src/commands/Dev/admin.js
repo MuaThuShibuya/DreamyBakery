@@ -10,6 +10,7 @@
  * Các subcommand:
  *  give        — Tặng vật phẩm hoặc bánh cho người chơi
  *  setshop     — (Mới) Cấp quyền "Chủ Shop" cho người dùng
+ *  setchannel  — Cấu hình kênh cho phép bot hoạt động
  *  coins       — Cộng / trừ xu của người chơi
  *  exp         — Cộng EXP cho người chơi
  *  resetcd     — Reset hồi chiêu (garden / farm / sneak / tất cả)
@@ -21,11 +22,13 @@
  */
 
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const User       = require('../models/User');
-const ShopListing = require('../models/ShopListing');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../utils/embeds');
-const { ALL_ITEM_KEYS, INGREDIENTS, BAKED_GOODS, COLORS } = require('../utils/constants');
-const { getItemInfo, calcLevel } = require('../utils/gameUtils');
+const User       = require('../../models/User');
+const ShopListing = require('../../models/ShopListing');
+const GuildConfig = require('../../models/Guild');
+const AdminLog    = require('../../models/AdminLog');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
+const { ALL_ITEM_KEYS, INGREDIENTS, BAKED_GOODS, COLORS } = require('../../utils/constants');
+const { getItemInfo, calcLevel } = require('../../utils/gameUtils');
 
 // ─── Danh sách user bị ban (lưu trong DB dưới dạng field) ────────────────────
 // Ban được lưu vào user.banned = true trong MongoDB
@@ -51,6 +54,17 @@ async function getOrCreate(userId, guildId, username) {
 /** Kiểm tra DEV ID */
 function isDev(userId) {
   return userId === process.env.DEV_ID;
+}
+
+async function logAdminAction(adminId, adminName, guildId, action, targetId, details) {
+  await AdminLog.create({
+    adminId,
+    adminName,
+    guildId,
+    action,
+    targetId,
+    details
+  }).catch(() => {});
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -85,6 +99,17 @@ module.exports = {
         .setName('quyen_han')
         .setDescription('True = Cấp quyền, False = Tước quyền')
         .setRequired(true)))
+
+    // ── Subcommand: setchannel ──────────────────────────────────────────────
+    .addSubcommand(sc => sc
+      .setName('setchannel')
+      .setDescription('Thêm/Xóa kênh được phép sử dụng bot (để trống = hoạt động mọi kênh)')
+      .addStringOption(o => o
+        .setName('hanh_dong')
+        .setDescription('Thêm hoặc Xóa')
+        .setRequired(true)
+        .addChoices({ name: 'Thêm kênh', value: 'add' }, { name: 'Xóa kênh', value: 'remove' }))
+      .addChannelOption(o => o.setName('kenh').setDescription('Kênh áp dụng').setRequired(true)))
 
     // ── Subcommand: coins ───────────────────────────────────────────────────
     .addSubcommand(sc => sc
@@ -173,7 +198,13 @@ module.exports = {
           { name: '⚠️ Vàng (cảnh báo)', value: 'warning' },
           { name: '❌ Đỏ (quan trọng)',  value: 'error'   },
           { name: '💛 Vàng Kim',         value: 'gold'    },
-        ))),
+        )))
+
+    // ── Subcommand: logs ────────────────────────────────────────────────────
+    .addSubcommand(sc => sc
+      .setName('logs')
+      .setDescription('Xem lịch sử thao tác của Admin')
+      .addUserOption(o => o.setName('nguoi_choi').setDescription('Lọc theo Admin').setRequired(false))),
 
   /** Thực thi lệnh !admin */
   async executeMessage(message, args) {
@@ -183,14 +214,14 @@ module.exports = {
 
     const sub = args[0]?.toLowerCase();
     if (!sub) {
-      return message.reply({ embeds: [errorEmbed('Vui lòng nhập lệnh con!\nVí dụ: `!admin give @user wheat 5`, `!admin coins @user 100`, `!admin stats`')] });
+      return message.reply({ embeds: [errorEmbed('Vui lòng nhập lệnh con!\nVí dụ: `.admin give @user wheat 5`, `.admin coins @user 100`, `.admin stats`')] });
     }
 
     // Lấy tag user đầu tiên
     const target = message.mentions.users.first();
 
     if (sub === 'give') {
-      if (!target || args.length < 4) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin give @user [item] [qty]`')] });
+      if (!target || args.length < 4) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin give @user [item] [qty]`')] });
       const itemKey = args[2].toLowerCase();
       const qty = parseInt(args[3]);
       if (isNaN(qty) || qty <= 0) return message.reply({ embeds: [errorEmbed('Số lượng không hợp lệ!')] });
@@ -200,6 +231,7 @@ module.exports = {
       user.inventory[itemKey] = (user.inventory[itemKey] || 0) + qty;
       user.markModified('inventory');
       await user.save();
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'GIVE', target.id, `Tặng ${qty} x ${itemKey}`);
 
       const info  = getItemInfo(itemKey);
       const label = info ? `${info.emoji} ${info.name}` : itemKey;
@@ -207,18 +239,36 @@ module.exports = {
     }
 
     if (sub === 'setshop') {
-      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin setshop @user [true/false]`')] });
+      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin setshop @user [true/false]`')] });
       const isShop = args[2].toLowerCase() === 'true';
 
       const user = await getOrCreate(target.id, message.guild.id, target.username);
       user.isShopOwner = isShop;
       await user.save();
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'SETSHOP', target.id, `Set: ${isShop}`);
 
       return message.reply({ embeds: [successEmbed('🏪 Phân Quyền Thương Mại', `👤 **${target.displayName}**\nQuyền Chủ Shop: **${isShop ? 'BẬT ✅' : 'TẮT ❌'}**\n*(Họ đã có thể sử dụng lệnh đăng bán hàng).*`)] });
     }
 
+    if (sub === 'setchannel') {
+      const action = args[1]?.toLowerCase();
+      const channel = message.mentions.channels.first();
+      if (!['add', 'remove'].includes(action) || !channel) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin setchannel [add/remove] #channel`')] });
+      
+      const config = await GuildConfig.findOneAndUpdate({ guildId: message.guild.id }, {}, { upsert: true, new: true });
+      
+      if (action === 'add') {
+        if (!config.allowedChannels.includes(channel.id)) config.allowedChannels.push(channel.id);
+      } else {
+        config.allowedChannels = config.allowedChannels.filter(id => id !== channel.id);
+      }
+      await config.save();
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'SETCHANNEL', null, `${action} ${channel.id}`);
+      return message.reply({ embeds: [successEmbed('⚙️ Cấu Hình Kênh', `Đã **${action === 'add' ? 'THÊM' : 'XÓA'}** kênh ${channel} khỏi danh sách được phép dùng bot.\n*(Nếu danh sách trống, bot sẽ hoạt động ở mọi kênh)*`)] });
+    }
+
     if (sub === 'coins') {
-      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin coins @user [amount]`')] });
+      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin coins @user [amount]`')] });
       const amount = parseInt(args[2]);
       if (isNaN(amount)) return message.reply({ embeds: [errorEmbed('Số xu không hợp lệ!')] });
 
@@ -228,11 +278,12 @@ module.exports = {
       await user.save();
 
       const action = amount >= 0 ? `+${amount}` : `${amount}`;
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'COINS', target.id, `Điều chỉnh: ${amount}`);
       return message.reply({ embeds: [successEmbed('✅ Đã Điều Chỉnh Xu', `👤 **${target.displayName}**\n💰 Thay đổi: **${action}** xu\n💳 Xu mới: **${newCoins.toLocaleString('vi-VN')}** xu`)] });
     }
 
     if (sub === 'exp') {
-      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin exp @user [amount]`')] });
+      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin exp @user [amount]`')] });
       const amount = parseInt(args[2]);
       if (isNaN(amount) || amount <= 0) return message.reply({ embeds: [errorEmbed('Số EXP không hợp lệ!')] });
 
@@ -241,11 +292,12 @@ module.exports = {
       await user.save();
 
       const newLevel = calcLevel(user.exp);
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'EXP', target.id, `Cộng: ${amount}`);
       return message.reply({ embeds: [successEmbed('✅ Đã Cộng EXP', `👤 **${target.displayName}**\n⭐ +**${amount}** EXP\n🎯 Cấp độ hiện tại: **Cấp ${newLevel}**`)] });
     }
 
     if (sub === 'resetcd') {
-      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin resetcd @user [garden|farm|sneak|all]`')] });
+      if (!target || args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin resetcd @user [garden|farm|sneak|all]`')] });
       const type = args[2].toLowerCase();
       if (!['garden', 'farm', 'sneak', 'all'].includes(type)) return message.reply({ embeds: [errorEmbed('Loại không hợp lệ! (garden, farm, sneak, all)')] });
 
@@ -254,17 +306,19 @@ module.exports = {
       if (type === 'all' || type === 'farm')   user.cooldowns.farm   = null;
       if (type === 'all' || type === 'sneak')  user.cooldowns.sneak  = null;
       await user.save();
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'RESETCD', target.id, `Loại: ${type}`);
 
       return message.reply({ embeds: [successEmbed('✅ Đã Reset Hồi Chiêu', `👤 **${target.displayName}** — Đã reset: **${type}**`)] });
     }
 
     if (sub === 'reset') {
-      if (!target || args[2]?.toLowerCase() !== 'true') return message.reply({ embeds: [errorEmbed('Bạn phải nhập `true` để xác nhận!\nCú pháp: `!admin reset @user true`')] });
+      if (!target || args[2]?.toLowerCase() !== 'true') return message.reply({ embeds: [errorEmbed('Bạn phải nhập `true` để xác nhận!\nCú pháp: `.admin reset @user true`')] });
 
       await Promise.all([
         User.deleteOne({ userId: target.id, guildId: message.guild.id }),
         ShopListing.deleteMany({ sellerId: target.id, guildId: message.guild.id }),
       ]);
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'RESETDATA', target.id, `Đã xóa toàn bộ dữ liệu`);
       return message.reply({ embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **${target.displayName}** — Toàn bộ dữ liệu đã bị xóa.`)] });
     }
 
@@ -300,7 +354,7 @@ module.exports = {
     }
 
     if (sub === 'ban') {
-      if (!target) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin ban @user [ly_do]`')] });
+      if (!target) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin ban @user [ly_do]`')] });
       if (target.id === message.author.id) return message.reply({ embeds: [errorEmbed('Không thể tự ban mình!')] });
 
       const reason = args.slice(2).join(' ') || 'Không có lý do';
@@ -309,22 +363,39 @@ module.exports = {
         { $set: { banned: true, banReason: reason } },
         { upsert: true },
       );
-      return message.reply({ embeds: [bakeryEmbed('🔨 Đã Cấm Người Chơi', `👤 **${target.displayName}** bị cấm.\n📝 Lý do: *${reason}*\n\n*(Dùng \`!admin unban\` để bỏ cấm)*`, COLORS.error)] });
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'BAN', target.id, `Lý do: ${reason}`);
+      return message.reply({ embeds: [bakeryEmbed('🔨 Đã Cấm Người Chơi', `👤 **${target.displayName}** bị cấm.\n📝 Lý do: *${reason}*\n\n*(Dùng \`.admin unban\` để bỏ cấm)*`, COLORS.error)] });
     }
 
     if (sub === 'unban') {
-      if (!target) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin unban @user`')] });
+      if (!target) return message.reply({ embeds: [errorEmbed('Cú pháp: `.admin unban @user`')] });
       await User.findOneAndUpdate(
         { userId: target.id, guildId: message.guild.id },
         { $unset: { banned: '', banReason: '' } },
         { upsert: true },
       );
+      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'UNBAN', target.id, `Bỏ cấm`);
       return message.reply({ embeds: [successEmbed('✅ Đã Bỏ Cấm', `👤 **${target.displayName}** có thể sử dụng bot trở lại.`)] });
     }
 
     if (sub === 'broadcast') {
       if (args.length < 3) return message.reply({ embeds: [errorEmbed('Cú pháp: `!admin broadcast "tiêu đề" "nội dung"`\n*(Gợi ý: Dùng dấu `/` cho lệnh này để nhập tin dài dễ hơn)*')] });
       return message.reply({ content: '⚠️ Chức năng broadcast hỗ trợ nhập tin nhắn dài tốt nhất qua dấu `/`. Xin hãy dùng `/admin broadcast`!' });
+    }
+
+    if (sub === 'logs') {
+      const query = { guildId: message.guild.id };
+      if (target) query.adminId = target.id;
+      
+      const logs = await AdminLog.find(query).sort({ createdAt: -1 }).limit(15).lean();
+      if (!logs.length) return message.reply({ embeds: [errorEmbed('Chưa có lịch sử thao tác nào.')] });
+
+      const lines = logs.map(l => `\`[${new Date(l.createdAt).toLocaleString('vi-VN')}]\` **${l.adminName}** đã \`${l.action}\` ${l.targetId ? `<@${l.targetId}>` : ''} - *${l.details}*`);
+      return message.reply({ embeds: [bakeryEmbed(
+        '📋 Lịch Sử Admin (15 hành động gần nhất)',
+        lines.join('\n\n'),
+        COLORS.gold
+      )] });
     }
   },
 
@@ -387,6 +458,21 @@ module.exports = {
       await interaction.reply({
         embeds: [successEmbed('🏪 Phân Quyền Thương Mại', `👤 **${target.displayName}**\nQuyền Chủ Shop: **${isShop ? 'BẬT ✅' : 'TẮT ❌'}**`)],
       });
+    }
+
+    // ── /admin setchannel ─────────────────────────────────────────────────────
+    else if (sub === 'setchannel') {
+      const action  = interaction.options.getString('hanh_dong');
+      const channel = interaction.options.getChannel('kenh');
+      const config  = await GuildConfig.findOneAndUpdate({ guildId: interaction.guildId }, {}, { upsert: true, new: true });
+
+      if (action === 'add') {
+        if (!config.allowedChannels.includes(channel.id)) config.allowedChannels.push(channel.id);
+      } else {
+        config.allowedChannels = config.allowedChannels.filter(id => id !== channel.id);
+      }
+      await config.save();
+      await interaction.reply({ embeds: [successEmbed('⚙️ Cấu Hình Kênh', `Đã **${action === 'add' ? 'THÊM' : 'XÓA'}** kênh ${channel} khỏi danh sách được phép dùng bot.\n*(Nếu danh sách trống, bot sẽ hoạt động ở mọi kênh)*`)], ephemeral: true });
     }
 
     // ── /admin coins ──────────────────────────────────────────────────────────

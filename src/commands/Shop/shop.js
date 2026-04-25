@@ -16,11 +16,11 @@
  */
 
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
-const User        = require('../models/User');
-const ShopListing = require('../models/ShopListing');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../utils/embeds');
-const { BAKED_GOODS, COLORS, BAKED_KEYS } = require('../utils/constants');
-const { getItemInfo, chunkArray } = require('../utils/gameUtils');
+const User        = require('../../models/User');
+const ShopListing = require('../../models/ShopListing');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
+const { BAKED_GOODS, COLORS, BAKED_KEYS } = require('../../utils/constants');
+const { getItemInfo, chunkArray } = require('../../utils/gameUtils');
 
 /** Số listing hiển thị mỗi trang */
 const PER_PAGE = 5;
@@ -110,7 +110,8 @@ function buildShopComponents(listings, page, total, userId) {
     .map((l, i) => btn(`shop:buy:${l._id}`, `Mua #${page * PER_PAGE + i + 1}`, 'Primary'));
 
   if (buyBtns.length) {
-    chunkArray(buyBtns, 5).forEach(chunk => components.push(row(...chunk)));
+    // Chia mỗi hàng tối đa 3 nút để hiển thị đẹp trên điện thoại
+    chunkArray(buyBtns, 3).forEach(chunk => components.push(row(...chunk)));
   }
 
   return components;
@@ -147,10 +148,9 @@ module.exports = {
     // ── Mở từ menu ──────────────────────────────────────────────────────────
     if (action === 'open') {
       const { listings, total } = await fetchListings(interaction.guildId, 0);
-      return interaction.reply({
+      return interaction.update({
         embeds:     [buildShopEmbed(listings, 0, total)],
-        components: buildShopComponents(listings, 0, total, interaction.user.id),
-        ephemeral:  true
+        components: [...buildShopComponents(listings, 0, total, interaction.user.id), row(btn('menu:home', '◀ Menu', 'Secondary'))],
       });
     }
 
@@ -161,7 +161,7 @@ module.exports = {
       const { listings, total } = await fetchListings(interaction.guildId, page);
       return interaction.editReply({
         embeds:     [buildShopEmbed(listings, page, total)],
-        components: buildShopComponents(listings, page, total, interaction.user.id),
+        components: [...buildShopComponents(listings, page, total, interaction.user.id), row(btn('menu:home', '◀ Menu', 'Secondary'))],
       });
     }
 
@@ -181,7 +181,7 @@ module.exports = {
 
       // Liệt kê các loại bánh hợp lệ để user biết cần nhập gì
       const validKeys = [...BAKED_KEYS, ...BAKED_KEYS.map(k => `shiny_${k}`)];
-      const hint      = BAKED_KEYS.slice(0, 3).join(', ') + '...';
+      const hint      = BAKED_KEYS[0];
 
       const modal = new ModalBuilder()
         .setCustomId('shop:list_modal')
@@ -191,7 +191,7 @@ module.exports = {
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId('item')
-            .setLabel(`Tên sản phẩm (VD: ${hint})`)
+            .setLabel(`Tên bánh (VD: ${hint})`)
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('strawberry_cupcake')
             .setRequired(true),
@@ -258,7 +258,7 @@ module.exports = {
       await interaction.deferUpdate();
       const listingId = parts[2];
       const listing   = await ShopListing.findById(listingId);
-      if (!listing) return interaction.editReply({ embeds: [errorEmbed('Sản phẩm không còn tồn tại!')], components: [] });
+      if (!listing) return interaction.editReply({ embeds: [errorEmbed('Sản phẩm không còn tồn tại!')], components: [row(btn('shop:open', '◀ Quay Lại Shop', 'Secondary'))] });
 
       const buyer = await User.findOneAndUpdate(
         { userId: interaction.user.id, guildId: interaction.guildId },
@@ -268,7 +268,7 @@ module.exports = {
 
       const total = listing.price * listing.quantity;
       if (buyer.coins < total) {
-        return interaction.editReply({ embeds: [errorEmbed(`Không đủ xu! Cần **${total}** xu nhưng chỉ có **${buyer.coins}**.`)], components: [] });
+        return interaction.editReply({ embeds: [errorEmbed(`Không đủ xu! Cần **${total}** xu nhưng chỉ có **${buyer.coins}**.`)], components: [row(btn('shop:open', '◀ Quay Lại Shop', 'Secondary'))] });
       }
 
       // Trừ xu người mua, cộng xu người bán
@@ -298,13 +298,47 @@ module.exports = {
           '',
           `📦 Đã thêm vào kho của bạn!`,
         ].join('\n'))],
-        components: [],
+        components: [row(btn('shop:open', '🛒 Tiếp Tục Mua', 'Primary'), btn('menu:home', '🏠 Trang Chủ', 'Secondary'))],
       });
     }
 
     // ── Hủy xem listing ──────────────────────────────────────────────────────
     if (action === 'cancel_buy') {
-      return interaction.update({ embeds: [bakeryEmbed('❌ Đã Hủy', 'Bạn đã hủy giao dịch.', COLORS.error)], components: [] });
+      return interaction.update({ embeds: [bakeryEmbed('❌ Đã Hủy', 'Bạn đã hủy giao dịch.', COLORS.error)], components: [row(btn('shop:open', '◀ Quay Lại Shop', 'Primary'))] });
+    }
+
+    // ── Gian hàng của tôi ───────────────────────────────────────────────────
+    if (action === 'my') {
+      const myListings = await ShopListing.find({ sellerId: interaction.user.id, guildId: interaction.guildId }).lean();
+      if (!myListings.length) {
+        return interaction.reply({ embeds: [errorEmbed('Bạn đang không có sản phẩm nào được bày bán!')], ephemeral: true });
+      }
+      const lines = myListings.map((l, i) => {
+        const info = getItemInfo(l.item);
+        const label = info ? `${info.emoji} ${info.name}` : l.item;
+        return `**${i+1}.** ${label} × **${l.quantity}** — 💰 **${l.price.toLocaleString('vi-VN')}** xu`;
+      });
+      
+      // Nút hủy (hỗ trợ hủy tối đa 5 sản phẩm đầu tiên trên 1 trang để UI gọn)
+      const delBtns = myListings.slice(0, 5).map((l, i) => btn(`shop:del:${l._id}`, `Gỡ #${i+1}`, 'Danger'));
+      
+      return interaction.update({
+        embeds: [bakeryEmbed('📦 Quản Lý Cửa Hàng Của Bạn', lines.join('\n\n'), COLORS.purple)],
+        components: delBtns.length ? [row(...delBtns), row(btn('menu:section:shop', '◀ Quay Lại', 'Secondary'))] : [row(btn('menu:section:shop', '◀ Quay Lại', 'Secondary'))],
+      });
+    }
+
+    // ── Gỡ sản phẩm ──────────────────────────────────────────────────────────
+    if (action === 'del') {
+      const listing = await ShopListing.findOneAndDelete({ _id: parts[2], sellerId: interaction.user.id });
+      if (!listing) return interaction.update({ embeds: [errorEmbed('Sản phẩm không tồn tại hoặc đã được mua!')], components: [row(btn('shop:my', '◀ Gian Hàng', 'Secondary'))] });
+      
+      // Trả lại đồ vào kho
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      user.inventory[listing.item] = (user.inventory[listing.item] || 0) + listing.quantity;
+      user.markModified('inventory');
+      await user.save();
+      return interaction.update({ embeds: [successEmbed('Đã Gỡ Sản Phẩm', 'Hàng đã được cất lại vào kho của bạn.')], components: [row(btn('shop:my', '◀ Gian Hàng', 'Secondary'))] });
     }
   },
 
@@ -366,13 +400,16 @@ module.exports = {
     });
 
     const label = info ? `${info.emoji} ${info.name}` : itemKey;
-    await interaction.editReply({
+    await interaction.update({
       embeds: [successEmbed('📦 Đã Đăng Bán!', [
         `${label} × **${qty}** với giá **${price.toLocaleString('vi-VN')} xu/cái**`,
         `💸 Tổng giá trị: **${(qty * price).toLocaleString('vi-VN')}** xu`,
         '',
         `Listing sẽ tự hết hạn sau **7 ngày**. Dùng \`/shop\` để xem.`,
       ].join('\n'))],
+      components: [row(btn('menu:section:shop', '◀ Quay Lại Shop', 'Secondary'))]
     });
   },
+
+  // (Nếu code cũ của bạn có dòng "Gian hàng của tôi" nằm ngoài cặp ngoặc này, hãy XÓA HẾT đi nhé)
 };

@@ -11,9 +11,9 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../utils/embeds');
-const { UPGRADES, COLORS } = require('../utils/constants');
+const User = require('../../models/User');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
+const { UPGRADES, COLORS } = require('../../utils/constants');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ function buildUpgradeEmbed(user) {
  * Xây hàng nút cho từng loại nâng cấp.
  * @param {Document} user
  */
-function buildUpgradeButtons(user) {
+function buildUpgradeButtons(user, addBack = false) {
   const btns = Object.entries(UPGRADES).map(([key, u]) => {
     const current  = user.upgrades[key] || 0;
     const isMax    = current >= u.maxLevel;
@@ -65,7 +65,9 @@ function buildUpgradeButtons(user) {
   });
 
   // Chia thành 2 hàng, mỗi hàng 2 nút
-  return [row(...btns.slice(0, 2)), row(...btns.slice(2, 4))];
+  const rows = [row(...btns.slice(0, 2)), row(...btns.slice(2, 4))];
+  if (addBack) rows.push(row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary')));
+  return rows;
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -104,10 +106,9 @@ module.exports = {
         { $setOnInsert: { username: interaction.user.username } },
         { upsert: true, new: true },
       );
-      return interaction.reply({
+      return interaction.update({
         embeds:     [buildUpgradeEmbed(user)],
-        components: buildUpgradeButtons(user),
-        ephemeral:  true,
+        components: buildUpgradeButtons(user, true),
       });
     }
 
@@ -119,10 +120,11 @@ module.exports = {
 
       const user    = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const current = user.upgrades[key] || 0;
+      const hasBack = interaction.message.components.length > 2;
 
       // Kiểm tra đã max chưa
       if (current >= u.maxLevel) {
-        return interaction.editReply({ embeds: [errorEmbed(`**${u.name}** đã đạt cấp tối đa rồi!`)], components: buildUpgradeButtons(user) });
+        return interaction.editReply({ embeds: [errorEmbed(`**${u.name}** đã đạt cấp tối đa rồi!`)], components: buildUpgradeButtons(user, hasBack) });
       }
 
       const cost = u.costs[current + 1];
@@ -131,7 +133,7 @@ module.exports = {
       if (user.coins < cost) {
         return interaction.editReply({
           embeds: [errorEmbed(`Không đủ xu! Cần **${cost.toLocaleString('vi-VN')}** xu để nâng cấp **${u.emoji} ${u.name}** lên cấp ${current + 1}.\nHiện có: **${user.coins.toLocaleString('vi-VN')}** xu.`)],
-          components: buildUpgradeButtons(user),
+          components: buildUpgradeButtons(user, hasBack),
         });
       }
 
@@ -150,7 +152,7 @@ module.exports = {
             `💰 Xu còn lại: **${user.coins.toLocaleString('vi-VN')}** xu`,
           ].join('\n'),
         )],
-        components: buildUpgradeButtons(user),
+        components: buildUpgradeButtons(user, hasBack),
       });
     }
   },

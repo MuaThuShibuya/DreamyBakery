@@ -9,11 +9,11 @@
  * Lưu ý: Không thể tặng cho chính mình và không thể tặng quá số lượng trong kho.
  */
 
-const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { successEmbed, errorEmbed, bakeryEmbed, btn, row } = require('../utils/embeds');
-const { INGREDIENTS, BAKED_GOODS, COLORS, INGR_KEYS, BAKED_KEYS } = require('../utils/constants');
-const { getItemInfo } = require('../utils/gameUtils');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const User = require('../../models/User');
+const { successEmbed, errorEmbed, bakeryEmbed, btn, row, selectMenu } = require('../../utils/embeds');
+const { INGREDIENTS, BAKED_GOODS, COLORS, INGR_KEYS, BAKED_KEYS } = require('../../utils/constants');
+const { getItemInfo } = require('../../utils/gameUtils');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -221,4 +221,71 @@ module.exports = {
       )],
     });
   },
+
+  async handleComponent(interaction) {
+    const parts = interaction.customId.split(':');
+    const action = parts[1];
+
+    if (action === 'open') {
+      const targetId = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      
+      const options = getInventoryOptions(user.inventory).slice(0, 25);
+      if (!options.length) {
+        return interaction.reply({ embeds: [errorEmbed('Kho của bạn trống rỗng, không có gì để tặng cả!')], ephemeral: true });
+      }
+
+      const smOptions = options.map(o => ({ label: o.name.substring(0, 100), value: o.value }));
+      const menu = selectMenu(`gift:select_item:${targetId}`, '🎁 Chọn vật phẩm muốn tặng...', smOptions);
+      
+      return interaction.update({
+        embeds: [bakeryEmbed('🎁 Tặng Quà', 'Vui lòng chọn vật phẩm bạn muốn tặng từ kho:', COLORS.primary)],
+        components: [row(menu), row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))]
+      });
+    }
+
+    if (action === 'select_item') {
+      const targetId = parts[2];
+      const itemKey = interaction.values[0];
+      
+      const modal = new ModalBuilder()
+        .setCustomId(`gift:modal:${targetId}:${itemKey}`)
+        .setTitle('🎁 Nhập Số Lượng Tặng');
+      const input = new TextInputBuilder()
+        .setCustomId('qty')
+        .setLabel('Số lượng muốn tặng')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true);
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
+      return interaction.showModal(modal);
+    }
+  },
+
+  async handleModal(interaction) {
+    const parts = interaction.customId.split(':');
+    if (parts[0] === 'gift' && parts[1] === 'modal') {
+      const targetId = parts[2];
+      const itemKey = parts[3];
+      const qty = parseInt(interaction.fields.getTextInputValue('qty'));
+
+      if (isNaN(qty) || qty <= 0) return interaction.reply({ embeds: [errorEmbed('Số lượng không hợp lệ!')], ephemeral: true });
+      
+      const sender = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const has = sender.inventory[itemKey] || 0;
+      if (has < qty) return interaction.reply({ embeds: [errorEmbed('Không đủ hàng trong kho!')], ephemeral: true });
+
+      const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetId } }, { upsert: true, new: true });
+      sender.inventory[itemKey] -= qty;
+      sender.markModified('inventory');
+      receiver.inventory[itemKey] = (receiver.inventory[itemKey] || 0) + qty;
+      receiver.markModified('inventory');
+      await Promise.all([sender.save(), receiver.save()]);
+
+      const info = getItemInfo(itemKey);
+      return interaction.update({
+        embeds: [successEmbed('🎁 Quà Đã Được Gửi!', `Bạn đã gửi **${qty}** ${info.emoji} **${info.name}**!`)],
+        components: [row(btn('menu:section:social', '◀ Quay Lại Xã Hội', 'Secondary'))]
+      });
+    }
+  }
 };

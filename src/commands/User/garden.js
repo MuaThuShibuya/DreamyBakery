@@ -14,10 +14,10 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, successEmbed, btn, row } = require('../utils/embeds');
-const { GARDEN_HARVEST, INGREDIENTS, COOLDOWNS, COLORS, UPGRADES } = require('../utils/constants');
-const { formatMs, randomInt } = require('../utils/gameUtils');
+const User = require('../../models/User');
+const { bakeryEmbed, successEmbed, btn, row } = require('../../utils/embeds');
+const { GARDEN_HARVEST, INGREDIENTS, COOLDOWNS, COLORS, UPGRADES } = require('../../utils/constants');
+const { formatMs, randomInt } = require('../../utils/gameUtils');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -121,10 +121,9 @@ module.exports = {
         { upsert: true, new: true },
       );
       const { embed, isReady } = await buildGardenEmbed(user);
-      return interaction.reply({
+      return interaction.update({
         embeds:     [embed],
-        components: [row(btn('garden:harvest', '🌿 Thu Hoạch', 'Success', !isReady))],
-        ephemeral:  true,
+        components: [row(btn('garden:harvest', '🌿 Thu Hoạch', 'Success', !isReady), btn('menu:home', '◀ Menu', 'Secondary'))],
       });
     }
 
@@ -145,6 +144,8 @@ module.exports = {
     }
 
     // Tính và cộng sản lượng vào inventory
+    const hasBack = interaction.message.components[0]?.components.some(c => c.customId === 'menu:section:harvest' || c.customId === 'menu:home');
+    const backBtn = hasBack ? btn('menu:section:harvest', '◀ Quay Lại', 'Secondary') : null;
     const bonus = UPGRADES.garden.harvestBonus(user.upgrades.garden || 0);
     const lines = [];
 
@@ -168,11 +169,11 @@ module.exports = {
           ...lines,
           '',
           `⏰ **Vườn hồi phục sau:** \`${formatMs(COOLDOWNS.garden)}\``,
-          `📦 Dùng \`!inventory\` để xem kho hoặc \`!bake\` để nướng ngay!`,
+          `📦 Dùng \`.inventory\` để xem kho hoặc \`.bake\` để nướng ngay!`,
         ].join('\n'),
       )],
       // Disable nút sau khi đã thu hoạch để tránh nhầm lẫn
-      components: [row(btn('garden:harvest', '🌿 Thu Hoạch', 'Secondary', true))],
+    components: [row(btn('garden:harvest', '🌿 Thu Hoạch', 'Secondary', true), ...(backBtn ? [backBtn] : []))],
     });
   },
 };

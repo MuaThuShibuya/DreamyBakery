@@ -18,10 +18,11 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../utils/embeds');
-const { BAKED_GOODS, NPCS, COLORS } = require('../utils/constants');
-const { isNewDay, generateNpcOrders, chunkArray } = require('../utils/gameUtils');
+const User = require('../../models/User');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
+const { BAKED_GOODS, NPCS, COLORS } = require('../../utils/constants');
+const { isNewDay, generateNpcOrders, chunkArray } = require('../../utils/gameUtils');
+const { isShopOrAbove } = require('../../utils/permissions');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -127,6 +128,9 @@ module.exports = {
   /** Hiển thị đơn hàng hôm nay khi dùng lệnh. */
   async execute(interaction) {
     const user  = await fetchOrRefresh(interaction.user.id, interaction.guildId);
+    if (!isShopOrAbove(interaction.user.id, user)) {
+      return interaction.reply({ embeds: [errorEmbed('🔒 Bạn phải là **Chủ Shop** mới có thể nhận và giao đơn hàng NPC!')], ephemeral: true });
+    }
     const embed = buildOrderEmbed(user);
     const rows  = buildDeliverButtons(user.dailyOrders, user.inventory);
 
@@ -142,12 +146,18 @@ module.exports = {
     const parts  = interaction.customId.split(':');
     const action = parts[1];
 
+    const userCheck = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+    if (!isShopOrAbove(interaction.user.id, userCheck)) {
+      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới được thao tác đơn hàng.')], ephemeral: true });
+    }
+
     // ── Mở ephemeral từ shortcut profile ────────────────────────────────────
     if (action === 'open') {
       const user  = await fetchOrRefresh(interaction.user.id, interaction.guildId);
       const embed = buildOrderEmbed(user);
       const rows  = buildDeliverButtons(user.dailyOrders, user.inventory);
-      return interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+      rows.push(row(btn('menu:section:shop', '◀ Quay Lại', 'Secondary')));
+      return interaction.update({ embeds: [embed], components: rows });
     }
 
     // ── Giao hàng cho đơn cụ thể ────────────────────────────────────────────

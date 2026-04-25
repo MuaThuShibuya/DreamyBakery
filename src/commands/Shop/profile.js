@@ -13,10 +13,11 @@
  */
 
 const { SlashCommandBuilder } = require('discord.js');
-const User = require('../models/User');
-const { bakeryEmbed, btn, row } = require('../utils/embeds');
-const { calcLevel, levelProgress, progressBar, getLevelTitle, formatMs, expForLevel } = require('../utils/gameUtils');
-const { COLORS, UPGRADES } = require('../utils/constants');
+const User = require('../../models/User');
+const { bakeryEmbed, btn, row } = require('../../utils/embeds');
+const { calcLevel, levelProgress, progressBar, getLevelTitle, formatMs, expForLevel } = require('../../utils/gameUtils');
+const { COLORS, UPGRADES } = require('../../utils/constants');
+const { getRole, ROLE } = require('../../utils/permissions');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -41,7 +42,7 @@ async function getOrCreate(userId, guildId, username) {
  * @param {Document}         user   - Document từ MongoDB
  * @returns {EmbedBuilder}
  */
-async function buildProfileEmbed(target, user) {
+async function buildProfileEmbed(target, user, role) {
   const level = calcLevel(user.exp);
   const { progress, needed, pct } = levelProgress(user.exp, level);
   const bar   = progressBar(pct);
@@ -54,30 +55,45 @@ async function buildProfileEmbed(target, user) {
   const farmLeft   = user.cooldowns.farm
     ? Math.max(0, new Date(user.cooldowns.farm) - now)   : 0;
 
-  // Dòng trạng thái 4 nâng cấp hiển thị gọn trên 1 dòng
-  const upgrLines = Object.entries(UPGRADES)
-    .map(([key, u]) => `${u.emoji} **${u.name}**: Cấp ${user.upgrades[key] || 0}/${u.maxLevel}`)
-    .join('  |  ');
+  let descLines = [
+    `> *${title}* ✨`,
+    '',
+    `💰 **Ví:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
+    `⭐ **Cấp ${level}** — ${bar} ${pct}%`,
+    `❤️ **HP:** ${Math.floor(user.hp)}/100`,
+    `✨ **EXP:** ${progress} / ${needed}  *(Tổng lên cấp ${level + 1}: ${expForLevel(level)})*`,
+    '',
+  ];
+
+  if (role === ROLE.SHOP || role === ROLE.DEV) {
+    descLines.push(
+      `**🏪 Kinh doanh & Sản xuất**`,
+      `🧁 Đã nướng: **${user.stats.totalBaked}**  •  💸 Đã bán: **${user.stats.totalSold}**  •  📋 Đơn NPC: **${user.stats.totalOrders}**`,
+      '',
+      `**🔧 Nâng cấp tiệm**`,
+      `🔥 Lò nướng: Cấp ${user.upgrades.oven || 0}/5  •  🌸 Trang trí: Cấp ${user.upgrades.decor || 0}/5`,
+      `🌿 Khu vườn: Cấp ${user.upgrades.garden || 0}/5  •  🏡 Trang trại: Cấp ${user.upgrades.farm || 0}/5`,
+      ''
+    );
+  } else {
+    descLines.push(
+      `**🔧 Nâng cấp sinh thái**`,
+      `🌿 Khu vườn: Cấp ${user.upgrades.garden || 0}/5  •  🏡 Trang trại: Cấp ${user.upgrades.farm || 0}/5`,
+      ''
+    );
+  }
+
+  descLines.push(
+    `**🎮 Hoạt động xã hội**`,
+    `🎁 Quà tặng: **${user.stats.totalGifts}**  •  🐾 Lần trộm: **${user.stats.totalSneaks}**  •  ⚔️ Thắng PvP: **${user.stats.pvpWins || 0}**`,
+    '',
+    `**⏰ Hồi chiêu**`,
+    `🌿 Vườn: **${gardenLeft > 0 ? formatMs(gardenLeft) : '✅ Sẵn sàng'}**  •  🏡 Trại: **${farmLeft > 0 ? formatMs(farmLeft) : '✅ Sẵn sàng'}**`
+  );
 
   return bakeryEmbed(
     `🍰 Tiệm Bánh Của ${target.displayName || target.username}`,
-    [
-      `> *${title}* ✨`,
-      '',
-      `💰 **Xu:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
-      `⭐ **Cấp ${level}** — ${bar} ${pct}%`,
-      `✨ **EXP:** ${progress} / ${needed}  *(Tổng lên cấp ${level + 1}: ${expForLevel(level)})*`,
-      '',
-      `**📊 Thành tích**`,
-      `🧁 Đã nướng **${user.stats.totalBaked}** bánh  •  💸 Đã bán **${user.stats.totalSold}**`,
-      `📋 Đơn NPC **${user.stats.totalOrders}**  •  🎁 Quà tặng **${user.stats.totalGifts}**  •  🐾 Lần trộm **${user.stats.totalSneaks}**`,
-      '',
-      `**🔧 Nâng cấp**`,
-      upgrLines,
-      '',
-      `**⏰ Hồi chiêu**`,
-      `🌿 Khu vườn: **${gardenLeft > 0 ? formatMs(gardenLeft) : '✅ Sẵn sàng'}**  •  🏡 Trang trại: **${farmLeft > 0 ? formatMs(farmLeft) : '✅ Sẵn sàng'}**`,
-    ].join('\n'),
+    descLines.join('\n'),
     COLORS.primary,
   ).setThumbnail(
     // Hỗ trợ cả GuildMember và User object
@@ -110,7 +126,8 @@ module.exports = {
     const display = member || targetUser;
 
     const user  = await getOrCreate(targetUser.id, interaction.guildId, targetUser.username);
-    const embed = await buildProfileEmbed(display, user);
+    const role  = getRole(targetUser.id, user);
+    const embed = await buildProfileEmbed(display, user, role);
 
     // Shortcut buttons để nhanh chóng truy cập các tính năng chính
     const buttons = row(
@@ -129,15 +146,17 @@ module.exports = {
       const user = await getOrCreate(interaction.user.id, interaction.guildId, interaction.user.username);
       const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
       const display = member || interaction.user;
-      const embed = await buildProfileEmbed(display, user);
+      const role  = getRole(interaction.user.id, user);
+      const embed = await buildProfileEmbed(display, user, role);
 
       const buttons = row(
-        btn('inventory:open', '📦 Kho Đồ', 'Primary'),
-        btn('order:open', '📋 Đơn Hàng', 'Primary'),
-        btn('upgrade:open', '⬆️ Nâng Cấp', 'Secondary'),
-        btn('top:open', '🏆 Bảng Xếp Hạng', 'Secondary'),
+        btn('inventory:open', '📦 Kho Đồ',         'Primary'),
+        btn('order:open',     '📋 Đơn Hàng',       'Primary'),
+        btn('upgrade:open',   '⬆️ Nâng Cấp',       'Secondary'),
+        btn('top:open',       '🏆 Bảng Xếp Hạng', 'Secondary'),
+        btn('menu:home',      '◀ Menu',             'Secondary'),
       );
-      return interaction.reply({ embeds: [embed], components: [buttons], ephemeral: true });
+      return interaction.update({ embeds: [embed], components: [buttons] });
     }
   }
 };
