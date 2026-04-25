@@ -55,7 +55,7 @@ async function buildGardenEmbed(user) {
           ? '✅ **Vườn đã sẵn sàng để thu hoạch!**'
           : `⏰ **Hồi chiêu còn:** \`${formatMs(remaining)}\``,
         '',
-        `*Mỗi lần thu hoạch phải chờ **30 phút** 🕐*`,
+        `*Mỗi lần thu hoạch phải chờ **5 phút** 🕐*`,
       ].join('\n'),
       isReady ? COLORS.success : COLORS.warning,
     ),

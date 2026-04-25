@@ -61,15 +61,16 @@ function buildMenu(user, member, role, category = 'home') {
     embed = bakeryEmbed(
       '🍰 DREAMY BAKERY — BẢNG ĐIỀU KHIỂN',
       [
-        `> Chào mừng trở lại, **${member.displayName || member.username}**! *(${roleBadge})*`,
-        '',
-        `💰 **Ví:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
-        `⭐ **Cấp ${lvl}:** ${progressBar(pct, 10)} ${pct}%`,
-        `❤️ **HP:** ${Math.floor(user.hp)}/100`,
-        '',
-        `Sử dụng **Danh sách thả xuống** bên dưới để duyệt qua các tính năng của Tiệm Bánh.`,
-        '',
-        `> 💡 **Mẹo:** Đừng quên điểm danh mỗi ngày và thu hoạch đúng giờ nhé!`,
+        `Xin chào, **${member.displayName || member.username}**! *(${roleBadge})*`,
+        `Chào mừng bạn trở lại với Tiệm Bánh Mộng Mơ 🌸`,
+        ``,
+        `╭───────── **TỔNG QUAN** ─────────╮`,
+        ` 💰 **Tài sản:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
+        ` ⭐ **Cấp ${lvl}:** ${progressBar(pct, 10)} ${pct}%`,
+        ` ❤️ **Thể lực:** ${Math.floor(user.hp)} / 100`,
+        `╰────────────────────────────────╯`,
+        ``,
+        `🔽 *Sử dụng Menu thả xuống bên dưới để thao tác*`,
       ].join('\n'),
       role === ROLE.DEV ? COLORS.gold : role === ROLE.SHOP ? COLORS.purple : COLORS.primary
     );
@@ -77,7 +78,7 @@ function buildMenu(user, member, role, category = 'home') {
     
     // Hàng nút thao tác nhanh ngoài Trang chủ
     btnRows.push(row(
-      btn('daily:claim', '🎁 Điểm Danh', 'Success'),
+      btn('daily:claim', '🎁 Điểm Danh', 'Primary'),
       btn('inventory:open', '📦 Kho Đồ', 'Primary'),
       btn('garden:open', '🌿 Ra Vườn', 'Primary')
     ));
@@ -88,26 +89,31 @@ function buildMenu(user, member, role, category = 'home') {
     const title = getLevelTitle(level);
 
     let descLines = [
-      `> *${title}* ✨`,
-      '',
-      `✨ **EXP:** ${progress} / ${needed}  *(Tổng: ${user.exp})*`,
+      `Danh hiệu: **${title}** ✨`,
+      `Tiến trình: **${progress} / ${needed} EXP**`,
       '',
     ];
 
     if (role === ROLE.SHOP || role === ROLE.DEV) {
       descLines.push(
-        `**🏪 Kinh doanh & Sản xuất**`,
-        `🧁 Đã nướng: **${user.stats.totalBaked}**  •  💸 Đã bán: **${user.stats.totalSold}**  •  📋 Đơn NPC: **${user.stats.totalOrders}**`,
-        `🔥 Lò: Cấp ${user.upgrades.oven || 0}/5  •  🌸 Trang trí: Cấp ${user.upgrades.decor || 0}/5`,
+        `**🏭 Kinh Doanh & Sản Xuất**`,
+        `> 🧁 Đã nướng: **${user.stats.totalBaked}** bánh`,
+        `> 💸 Đã bán: **${user.stats.totalSold}** bánh`,
+        `> 📋 Đơn NPC: **${user.stats.totalOrders}** đơn`,
         ''
       );
     }
     descLines.push(
-      `**🔧 Nâng cấp sinh thái**`,
-      `🌿 Vườn: Cấp ${user.upgrades.garden || 0}/5  •  🏡 Trại: Cấp ${user.upgrades.farm || 0}/5`,
+      `**🏡 Nâng Cấp Thiết Bị**`,
+      `> 🔥 Lò nướng: Cấp **${user.upgrades.oven || 0}/5**`,
+      `> 🌸 Trang trí: Cấp **${user.upgrades.decor || 0}/5**`,
+      `> 🌿 Khu Vườn: Cấp **${user.upgrades.garden || 0}/5**`,
+      `> 🐄 Trang Trại: Cấp **${user.upgrades.farm || 0}/5**`,
       '',
-      `**🎮 Hoạt động xã hội**`,
-      `🎁 Tặng: **${user.stats.totalGifts}**  •  🐾 Trộm: **${user.stats.totalSneaks}**  •  ⚔️ Thắng: **${user.stats.pvpWins || 0}**`
+      `**🎮 Hoạt Động Xã Hội**`,
+      `> 🎁 Tặng quà: **${user.stats.totalGifts}** lần`,
+      `> 🐾 Trộm vườn: **${user.stats.totalSneaks}** lần`,
+      `> ⚔️ Đấu thắng: **${user.stats.pvpWins || 0}** trận`
     );
 
     embed = bakeryEmbed(`👤 Hồ Sơ Của ${member.displayName || member.username}`, descLines.join('\n'), COLORS.primary);
@@ -115,34 +121,35 @@ function buildMenu(user, member, role, category = 'home') {
     
     btnRows.push(row(
       btn('inventory:open', '📦 Mở Kho Đồ', 'Primary'),
-      btn('upgrade:open', '⬆️ Nâng Cấp Tiệm', 'Success'),
-      btn('eat:open', '🍰 Ăn Bánh (Hồi HP)', 'Secondary')
+      btn('upgrade:open', '⬆️ Nâng Cấp', 'Primary'),
+      btn('eat:open', '🍰 Ăn Bánh', 'Secondary')
     ));
   }
   else if (category === 'harvest') {
-    embed = bakeryEmbed('🌿 Khu Sinh Thái', '> *Thu hoạch nguyên liệu tươi sạch mỗi ngày.*\n\n> 💡 *Mẹo: Nâng cấp Vườn và Trại để tăng sản lượng!*', COLORS.success);
-    btnRows.push(row(btn('garden:open', '🌿 Thu Hoạch Vườn (30p)', 'Success'), btn('farm:open', '🏡 Thu Hoạch Trại (1h)', 'Success')));
+    embed = bakeryEmbed('🌿 Khu Sinh Thái', `Tiến hành trồng trọt và chăn nuôi để thu thập nguyên liệu.\n\n💡 *Mẹo: Nâng cấp Vườn và Trại để tăng sản lượng nhận được!*`, COLORS.success);
+    btnRows.push(row(btn('garden:open', '🌿 Ra Vườn (30p)', 'Primary'), btn('farm:open', '🏡 Ra Trại (1h)', 'Primary')));
   }
   else if (category === 'trade') {
     if (role === ROLE.USER) {
-      embed = bakeryEmbed('🏪 Khu Thương Mại', '> *Mua bán nguyên liệu, chuyển khoản và vay vốn tín dụng.*\n\n> 🔒 **Lưu ý:** Bạn cần Giấy Phép Chủ Shop để mở khóa Lò nướng và Bán hàng.', COLORS.gold);
-      btnRows.push(row(btn('market:open', '🏪 Chợ NPC', 'Primary'), btn('chuyentien:open', '💸 Chuyển Tiền', 'Success'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
+      embed = bakeryEmbed('🏪 Khu Thương Mại', `Khu vực giao thương sầm uất của thị trấn.\n\n🔒 **Lưu ý:** Bạn cần Giấy Phép để mở khóa Lò nướng và Shop Cá Nhân.`, COLORS.gold);
+      btnRows.push(row(btn('market:open', '🏪 Chợ NPC', 'Primary'), btn('shop:open', '🏬 Xem Shop', 'Primary')));
+      btnRows.push(row(btn('chuyentien:open', '💸 Chuyển Khoản', 'Secondary'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
     } else {
-      embed = bakeryEmbed('🏪 Thương Mại & Kinh Doanh', '> *Nơi tạo ra những chiếc bánh hảo hạng, mua bán và làm giàu!*', COLORS.gold);
-      btnRows.push(row(btn('market:open', '🏪 Chợ NPC', 'Primary'), btn('chuyentien:open', '💸 Chuyển Tiền', 'Success'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
-      btnRows.push(row(btn('bake:open', '🧁 Nướng Bánh', 'Primary'), btn('oven:open', '🔥 Lò Nướng', 'Danger'), btn('cookbook:open', '📖 Công Thức', 'Secondary')));
-      btnRows.push(row(btn('order:open', '📋 Giao Đơn NPC', 'Primary'), btn('shop:open', '🏬 Shop Người Chơi', 'Success')));
+      embed = bakeryEmbed('🏪 Thương Mại & Kinh Doanh', `Nơi tạo ra những chiếc bánh hảo hạng và giao thương làm giàu!`, COLORS.gold);
+      btnRows.push(row(btn('bake:open', '🧁 Nướng Bánh', 'Primary'), btn('oven:open', '🔥 Lò Nướng', 'Primary'), btn('cookbook:open', '📖 Sổ Tay', 'Secondary')));
+      btnRows.push(row(btn('order:open', '📋 Giao Đơn NPC', 'Primary'), btn('market:open', '🏪 Chợ Đen', 'Secondary'), btn('shop:open', '🏬 Shop Của Bạn', 'Secondary')));
+      btnRows.push(row(btn('chuyentien:open', '💸 Chuyển Khoản', 'Secondary'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
     }
   }
   else if (category === 'social') {
-    embed = bakeryEmbed('🎮 Xã Hội & Giải Trí', '> *Tương tác với bạn bè, nuôi thú cưng và thi đấu!*\n\nChọn một người chơi từ danh sách để tương tác trực tiếp:', COLORS.warning);
+    embed = bakeryEmbed('🎮 Xã Hội & Giải Trí', `Tương tác với bạn bè, chăm sóc linh thú và cạnh tranh thứ hạng.\n\n🔽 *Chọn một người chơi bên dưới để thao tác:*`, COLORS.warning);
     btnRows.push(row(userSelectMenu('menu:target', '🎯 Chọn người chơi để tương tác...')));
-    btnRows.push(row(btn('pet:open', '🐾 Trại Thú Cưng', 'Success'), btn('top:open', '🏆 Bảng Xếp Hạng', 'Secondary')));
+    btnRows.push(row(btn('pet:open', '🐾 Kho Thú Cưng', 'Primary'), btn('top:open', '🏆 Bảng Xếp Hạng', 'Primary')));
   }
   else if (category === 'dev') {
-    embed = bakeryEmbed('🔧 Dev Panel', '> *Bảng điều khiển hệ thống tối cao.*', COLORS.gold);
+    embed = bakeryEmbed('🔧 Bảng Điều Khiển Dev', `Khu vực quản trị tối cao của hệ thống.`, COLORS.gold);
     // Gộp nút Dev lại thành 3 hàng để tránh lỗi Discord "Must be 5 or fewer"
-    btnRows.push(row(btn('menu:dev:give', '🎁 Tặng Đồ', 'Primary'), btn('menu:dev:coins', '💰 Chỉnh Xu', 'Primary'), btn('menu:dev:exp', '⭐ Cộng EXP', 'Primary'), btn('menu:dev:setshop', '🏬 Cấp Shop', 'Success')));
+    btnRows.push(row(btn('menu:dev:give', '🎁 Tặng Đồ', 'Primary'), btn('menu:dev:coins', '💰 Chỉnh Xu', 'Primary'), btn('menu:dev:exp', '⭐ Cộng EXP', 'Primary'), btn('menu:dev:setshop', '🏬 Cấp Shop', 'Primary')));
     btnRows.push(row(btn('menu:dev:ban', '🔨 Ban', 'Danger'), btn('menu:dev:unban', '✅ Bỏ Cấm', 'Success'), btn('menu:dev:stats', '📊 Thống Kê', 'Secondary'), btn('menu:dev:broadcast', '📢 Broadcast', 'Secondary')));
     btnRows.push(row(btn('menu:dev:resetcd', '🔄 Reset CD', 'Secondary'), btn('menu:dev:reset', '⚠️ Xóa Dữ Liệu', 'Danger')));
   }
@@ -150,7 +157,7 @@ function buildMenu(user, member, role, category = 'home') {
   // Luôn có nút Trang Chủ và Đóng
   const footerRow = category === 'home' 
     ? row(btn('menu:close', '❌ Đóng Bảng Điều Khiển', 'Danger'))
-    : row(btn('menu:home', '🏠 Trang Chủ', 'Secondary'), btn('menu:close', '❌ Đóng', 'Danger'));
+    : row(btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'), btn('menu:close', '❌ Đóng', 'Danger'));
 
   btnRows.push(footerRow);
   return { embeds: [embed], components: [row(navMenu), ...btnRows] };
@@ -162,7 +169,7 @@ function makeTargetInput() {
   return new ActionRowBuilder().addComponents(
     new TextInputBuilder()
       .setCustomId('target')
-      .setLabel('Người dùng (@mention / ID / discord.com/users/...)')
+      .setLabel('Người dùng (Mention / ID / Link)')
       .setStyle(TextInputStyle.Short)
       .setRequired(true)
       .setPlaceholder('@username hoặc 123456789012345678'),
@@ -244,6 +251,9 @@ const DEV_MODALS = {
     .addComponents(
       makeTargetInput(),
       new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('type').setLabel('Loại xóa (all / coins / inv / exp)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('all'),
+      ),
+      new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('confirm').setLabel('Nhập "XÁC NHẬN" để tiến hành').setStyle(TextInputStyle.Short).setRequired(true),
       ),
     ),
@@ -302,9 +312,10 @@ module.exports = {
     // ── Dropdown Nav (Danh sách thả xuống) ────────────────────────────────────
     if (action === 'nav') {
       const category = interaction.values[0];
-      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (category === 'locked') return interaction.deferUpdate().catch(() => {});
+      const user = await User.findOneAndUpdate({ userId: interaction.user.id, guildId: interaction.guildId }, { $setOnInsert: { username: interaction.user.username } }, { upsert: true, new: true });
       const role = getRole(interaction.user.id, user);
-      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, category));
+      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, category)).catch(() => {});
     }
 
     // ── Quay về Home ──────────────────────────────────────────────────────────
@@ -682,20 +693,35 @@ module.exports = {
 
     // ── Xóa dữ liệu ──────────────────────────────────────────────────────────
     if (sub === 'reset') {
+      const type = interaction.fields.getTextInputValue('type').trim().toLowerCase();
       const confirm = interaction.fields.getTextInputValue('confirm').trim().toUpperCase();
       if (confirm !== 'XÁC NHẬN') {
         return interaction.reply({ embeds: [errorEmbed('Phải nhập chính xác **"XÁC NHẬN"** để tiến hành!')], flags: MessageFlags.Ephemeral });
       }
-      await Promise.all([
-        User.deleteOne({ userId: targetId, guildId: interaction.guildId }),
-        ShopListing.deleteMany({ sellerId: targetId, guildId: interaction.guildId }),
-      ]);
-      await logAdmin('RESET_DATA', targetId, `Xóa toàn bộ dữ liệu`);
-      return interaction.reply({
-        embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **<@${targetId}>** — Toàn bộ dữ liệu đã bị xóa.\n*(Kho đồ, xu, EXP, shop listings)*`)],
-        components: [backBtn],
-        flags: MessageFlags.Ephemeral
-      });
+      if (!['all', 'coins', 'inv', 'exp'].includes(type)) {
+        return interaction.reply({ embeds: [errorEmbed('Loại xóa không hợp lệ! Vui lòng nhập: all / coins / inv / exp')], flags: MessageFlags.Ephemeral });
+      }
+      
+      if (type === 'all') {
+        await Promise.all([
+          User.deleteOne({ userId: targetId, guildId: interaction.guildId }),
+          ShopListing.deleteMany({ sellerId: targetId, guildId: interaction.guildId }),
+        ]);
+        await logAdmin('RESET_DATA', targetId, `Xóa toàn bộ dữ liệu`);
+        return interaction.reply({ embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **<@${targetId}>** — Toàn bộ dữ liệu đã bị xóa.\n*(Kho đồ, xu, EXP, shop listings)*`)], components: [backBtn], flags: MessageFlags.Ephemeral });
+      } else {
+        const user = await User.findOne({ userId: targetId, guildId: interaction.guildId });
+        if (!user) return interaction.reply({ embeds: [errorEmbed('Không tìm thấy người chơi này!')], flags: MessageFlags.Ephemeral });
+        
+        if (type === 'coins') user.coins = 0;
+        if (type === 'inv') user.inventory = {};
+        if (type === 'exp') user.exp = 0;
+        
+        user.markModified('inventory');
+        await user.save();
+        await logAdmin('RESET_DATA', targetId, `Xóa dữ liệu: ${type}`);
+        return interaction.reply({ embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **<@${targetId}>** — Đã xóa dữ liệu: **${type.toUpperCase()}**.`)], components: [backBtn], flags: MessageFlags.Ephemeral });
+      }
     }
 
     // ── Broadcast ─────────────────────────────────────────────────────────────

@@ -110,8 +110,12 @@ client.on('messageCreate', async (message) => {
       message.reply('⚠️ Lệnh này đang được nâng cấp để hỗ trợ dấu `.`. Vui lòng dùng lệnh gạch chéo `/` tạm thời nhé!');
     }
   } catch (err) {
-    console.error(`[MessageError] ${commandName}:`, err);
-    message.reply('❌ Có lỗi xảy ra khi thực hiện lệnh!');
+    console.error(`\n[❌ MessageError] Lỗi khi chạy lệnh .${commandName}`);
+    console.error(`- User: ${message.author.tag} (${message.author.id})`);
+    console.error(`- Channel: ${message.channel.name || 'DM'} (${message.channel.id})`);
+    console.error(`- Content: ${message.content}`);
+    console.error(`- Stack Trace:\n`, err.stack || err);
+    message.reply('❌ Có lỗi nghiêm trọng xảy ra khi thực hiện lệnh! Hệ thống đã ghi nhận lỗi này để Admin xử lý.').catch(() => null);
   }
 });
 
@@ -196,7 +200,13 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       if (!isOriginalUser) {
-        return interaction.reply({ content: '⚠️ Nút này không dành cho bạn! Vui lòng tự gõ lệnh để sử dụng nhé. 🌸', ephemeral: true });
+        // Bỏ qua check bảo mật đối với các lệnh cho phép cộng đồng cùng tương tác
+        const publicPrefixes = ['shop', 'top', 'helpbakery'];
+        const prefix = interaction.customId.split(':')[0];
+        
+        if (!publicPrefixes.includes(prefix)) {
+          return interaction.reply({ content: '⚠️ Nút này không dành cho bạn! Vui lòng tự gõ lệnh để sử dụng nhé. 🌸', ephemeral: true });
+        }
       }
 
       const prefix = interaction.customId.split(':')[0];
@@ -218,7 +228,11 @@ client.on('interactionCreate', async (interaction) => {
     }
 
   } catch (err) {
-    console.error(`[InteractionError] ${interaction.customId || interaction.commandName}:`, err);
+    console.error(`\n[❌ InteractionError] Lỗi khi xử lý tương tác`);
+    console.error(`- User: ${interaction.user.tag} (${interaction.user.id})`);
+    console.error(`- Type: ${interaction.type}`);
+    console.error(`- ID: ${interaction.customId || interaction.commandName}`);
+    console.error(`- Stack Trace:\n`, err.stack || err);
 
     // Gửi thông báo lỗi thân thiện cho user
     const errPayload = {
@@ -237,12 +251,14 @@ client.on('interactionCreate', async (interaction) => {
 
 // ─── Xử lý lỗi không bắt được (tránh crash) ────────────────────────────────
 
-process.on('unhandledRejection', (err) => {
-  console.error('[UnhandledRejection]', err);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('\n[💥 UnhandledRejection] Lỗi Promise không được xử lý:');
+  console.error('- Reason:', reason?.stack || reason);
 });
 
 process.on('uncaughtException', (err) => {
-  console.error('[UncaughtException]', err);
+  console.error('\n[🔥 UncaughtException] Lỗi hệ thống chưa được bắt:');
+  console.error('- Error:', err.stack || err);
   // Không thoát — để bot tiếp tục chạy nếu lỗi không nghiêm trọng
 });
 

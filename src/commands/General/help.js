@@ -19,10 +19,10 @@ async function buildGuide(userId, guildId, client) {
     lines = [
       `**🌱 Chào mừng Nông Dân mới!**`,
       `Là một người chơi cơ bản, nhiệm vụ của bạn là sản xuất nguyên liệu và kiếm tiền.`,
-      `1️⃣ Dùng \`!menu\` -> **Thu Hoạch** để lấy lúa mì, dâu, trứng, sữa... (hồi chiêu 30p - 1h)`,
-      `2️⃣ Dùng \`!menu\` -> **Giao Dịch** -> **Chợ NPC** để bán nguyên liệu lấy xu.`,
-      `3️⃣ Dùng xu để ấp Thú Cưng (\`!menu\` -> **Thú Cưng**) hoặc mua bánh từ người khác.`,
-      `4️⃣ Tương tác với người khác bằng lệnh \`!sneak\` (trộm vườn) và \`!nem\` (chọi bánh).`,
+      `1️⃣ Dùng \`.menu\` -> **Khu Sinh Thái** để lấy lúa mì, dâu, trứng, sữa...`,
+      `2️⃣ Dùng \`.menu\` -> **Thương Mại** -> **Chợ NPC** để bán nguyên liệu lấy xu.`,
+      `3️⃣ Dùng xu để ấp Thú Cưng (\`.menu\` -> **Xã Hội**) hoặc mua bánh từ người khác.`,
+      `4️⃣ Tương tác với người khác bằng lệnh \`.sneak\` (trộm vườn) và \`.nem\` (chọi bánh).`,
       '',
       `*💡 Bạn muốn tự tay nướng bánh và mở tiệm? Hãy xin Admin cấp giấy phép Chủ Shop!*`
     ];
@@ -30,18 +30,18 @@ async function buildGuide(userId, guildId, client) {
     lines = [
       `**🏬 Chào mừng Chủ Shop!**`,
       `Bạn đã có giấy phép kinh doanh. Bây giờ bạn có thể Nướng Bánh và Mở Tiệm!`,
-      `1️⃣ Dùng \`!menu\` -> **Nướng Bánh** để tạo ra các loại bánh thơm ngon.`,
-      `2️⃣ Dùng \`!menu\` -> **Đơn Hàng** để giao bánh cho khách quen (NPC) lấy nhiều xu và EXP.`,
-      `3️⃣ Dùng \`!menu\` -> **Quản Lý Shop** để đăng bán bánh của bạn cho người chơi khác!`,
+      `1️⃣ Dùng \`.menu\` -> **Khu Kinh Doanh** -> **Nướng Bánh** để tạo ra các loại bánh thơm ngon.`,
+      `2️⃣ Dùng \`.menu\` -> **Khu Kinh Doanh** -> **Đơn Hàng** để giao bánh cho khách quen.`,
+      `3️⃣ Dùng \`.menu\` -> **Khu Kinh Doanh** -> **Shop Của Bạn** để đăng bán bánh!`,
       `4️⃣ Cho Thú Cưng ăn bánh để tăng Lực Chiến mạnh mẽ.`
     ];
   } else {
     lines = [
       `**👑 Chào mừng Nhà Phát Triển (DEV)!**`,
       `Bạn nắm giữ quyền sinh sát toàn bộ server.`,
-      `1️⃣ Dùng \`!menu\` -> **Dev Panel** để điều chỉnh kinh tế, buff đồ, ban/unban.`,
-      `2️⃣ Dùng \`!admin setshop @user true\` để cấp giấy phép kinh doanh cho người chơi.`,
-      `3️⃣ Dùng \`!bomtien <số_lượng>\` để tự bơm xu, hoặc \`!vay cap @user <xu> <lãi>\` để cho vay.`
+      `1️⃣ Dùng \`.menu\` -> **Bảng Điều Khiển Dev** để điều chỉnh kinh tế, buff đồ, ban/unban.`,
+      `2️⃣ Dùng \`.admin setshop @user true\` để cấp giấy phép kinh doanh cho người chơi.`,
+      `3️⃣ Dùng \`.bomtien <số_lượng>\` để tự bơm xu, hoặc \`.vay cap @user <xu> <lãi>\` để cho vay.`
     ];
   }
 
@@ -61,25 +61,67 @@ module.exports = {
   async executeMessage(message, args) {
     const embed = await buildGuide(message.author.id, message.guild.id, message.client);
 
-    const buttons = row(
-      btn('menu:home', '📱 Mở Menu', 'Success'),
-      btn('cookbook:open', '📖 Sổ Tay Công Thức', 'Primary'),
-      btn('profile:open',  '🌸 Hồ Sơ Của Bạn', 'Secondary')
+    const row1 = row(
+      btn('menu:home', '📱 Mở Menu Tổng', 'Success'),
+      btn('helpbakery:docs', '📚 Tài Liệu Lệnh', 'Primary'),
+      btn('profile:open',  '👤 Hồ Sơ Của Bạn', 'Secondary')
     );
-    await message.reply({ embeds: [embed], components: [buttons] });
+    const row2 = row(
+      btn('garden:open', '🌿 Ra Vườn', 'Secondary'),
+      btn('market:open', '🏪 Chợ NPC', 'Secondary'),
+      btn('cookbook:open', '📖 Sổ Tay Nướng Bánh', 'Secondary')
+    );
+    await message.reply({ embeds: [embed], components: [row1, row2] });
   },
 
   /** Chạy khi người dùng gõ /helpbakery */
   async execute(interaction) {
     const embed = await buildGuide(interaction.user.id, interaction.guildId, interaction.client);
 
-    // Thêm các nút lối tắt
-    const buttons = row(
-      btn('menu:home', '📱 Mở Menu', 'Success'),
-      btn('cookbook:open', '📖 Sổ Tay Công Thức', 'Primary'),
-      btn('profile:open',  '🌸 Hồ Sơ Của Bạn', 'Secondary')
+    const row1 = row(
+      btn('menu:home', '📱 Mở Menu Tổng', 'Success'),
+      btn('helpbakery:docs', '📚 Tài Liệu Lệnh', 'Primary'),
+      btn('profile:open',  '👤 Hồ Sơ Của Bạn', 'Secondary')
     );
-
-    await interaction.reply({ embeds: [embed], components: [buttons] });
+    const row2 = row(
+      btn('garden:open', '🌿 Ra Vườn', 'Secondary'),
+      btn('market:open', '🏪 Chợ NPC', 'Secondary'),
+      btn('cookbook:open', '📖 Sổ Tay Nướng Bánh', 'Secondary')
+    );
+    await interaction.reply({ embeds: [embed], components: [row1, row2] });
   },
+
+  async handleComponent(interaction) {
+    if (interaction.customId === 'helpbakery:docs') {
+      const embed = bakeryEmbed(
+        '📚 Tài Liệu Các Lệnh Cơ Bản',
+        [
+          `**Cú pháp chung:** Sử dụng dấu chấm \`.\` trước mỗi lệnh.`,
+          '',
+          `**🌟 Lệnh Hệ Thống:**`,
+          `\`.menu\` - Mở bảng điều khiển trung tâm (Super App)`,
+          `\`.helpbakery\` - Xem hướng dẫn chi tiết`,
+          '',
+          `**🎮 Lệnh Tương Tác & Chơi Game:**`,
+          `\`.daily\` - Nhận xu điểm danh mỗi ngày`,
+          `\`.nem @user <tên_bánh>\` - Ném bánh vào người khác để cướp xu`,
+          `\`.sneak @user\` - Lén sang nhà người khác trộm vườn`,
+          `\`.gift @user <vật_phẩm> <số_lượng>\` - Tặng quà cho bạn bè`,
+          `\`.chuyentien @user <xu>\` - Chuyển khoản xu`,
+          '',
+          `**🛒 Lệnh Nông Dân & Thương Mại:**`,
+          `\`.garden\` / \`.farm\` - Lệnh nhanh thu hoạch`,
+          `\`.inventory\` - Xem túi đồ nhanh`,
+          `\`.market\` - Đi chợ NPC`,
+          `\`.shop\` - Mua bánh từ người chơi khác`,
+          `\`.top\` - Bảng xếp hạng server`,
+          '',
+          `**🏬 Lệnh Chủ Shop:**`,
+          `\`.bake\` (Nướng bánh) / \`.oven\` (Lấy bánh) / \`.cookbook\` / \`.order\``
+        ].join('\n'),
+        COLORS.primary
+      );
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+  }
 };

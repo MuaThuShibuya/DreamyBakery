@@ -21,7 +21,7 @@
  *  broadcast   — Gửi thông báo dạng embed vào channel hiện tại
  */
 
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const User       = require('../../models/User');
 const ShopListing = require('../../models/ShopListing');
 const GuildConfig = require('../../models/Guild');
@@ -156,6 +156,16 @@ module.exports = {
       .setName('reset')
       .setDescription('⚠️ Xóa toàn bộ dữ liệu game của người chơi')
       .addUserOption(o => o.setName('nguoi_choi').setDescription('Người chơi').setRequired(true))
+      .addStringOption(o => o
+        .setName('loai')
+        .setDescription('Loại xóa (all / coins / inv / exp)')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Tất cả (All)', value: 'all' },
+          { name: 'Tiền (Coins)', value: 'coins' },
+          { name: 'Kho đồ (Inventory)', value: 'inv' },
+          { name: 'Kinh nghiệm (EXP)', value: 'exp' }
+        ))
       .addBooleanOption(o => o
         .setName('xac_nhan')
         .setDescription('Nhập true để xác nhận (thao tác KHÔNG THỂ HOÀN TÁC)')
@@ -312,14 +322,26 @@ module.exports = {
     }
 
     if (sub === 'reset') {
-      if (!target || args[2]?.toLowerCase() !== 'true') return message.reply({ embeds: [errorEmbed('Bạn phải nhập `true` để xác nhận!\nCú pháp: `.admin reset @user true`')] });
+      if (!target || !args[2] || args[3]?.toLowerCase() !== 'true') {
+        return message.reply({ embeds: [errorEmbed('Bạn phải xác nhận `true` để xóa dữ liệu!\nCú pháp: `.admin reset @user [all/coins/inv/exp] true`')] });
+      }
+      const type = args[2].toLowerCase();
+      if (!['all', 'coins', 'inv', 'exp'].includes(type)) return message.reply({ embeds: [errorEmbed('Loại không hợp lệ! (all / coins / inv / exp)')] });
 
-      await Promise.all([
-        User.deleteOne({ userId: target.id, guildId: message.guild.id }),
-        ShopListing.deleteMany({ sellerId: target.id, guildId: message.guild.id }),
-      ]);
-      await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'RESETDATA', target.id, `Đã xóa toàn bộ dữ liệu`);
-      return message.reply({ embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **${target.displayName}** — Toàn bộ dữ liệu đã bị xóa.`)] });
+      if (type === 'all') {
+        await Promise.all([User.deleteOne({ userId: target.id, guildId: message.guild.id }), ShopListing.deleteMany({ sellerId: target.id, guildId: message.guild.id })]);
+        await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'RESETDATA', target.id, `Đã xóa toàn bộ dữ liệu`);
+        return message.reply({ embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **${target.displayName}** — Toàn bộ dữ liệu đã bị xóa.`)] });
+      } else {
+         const user = await getOrCreate(target.id, message.guild.id, target.username);
+         if (type === 'coins') user.coins = 0;
+         if (type === 'inv') user.inventory = {};
+         if (type === 'exp') user.exp = 0;
+         user.markModified('inventory');
+         await user.save();
+         await logAdminAction(message.author.id, message.author.displayName, message.guild.id, 'RESETDATA', target.id, `Xóa dữ liệu: ${type}`);
+         return message.reply({ embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **${target.displayName}** — Đã xóa dữ liệu: **${type.toUpperCase()}**.`)] });
+      }
     }
 
     if (sub === 'stats') {
@@ -406,7 +428,7 @@ module.exports = {
    */
   async execute(interaction) {
     if (!isDev(interaction.user.id)) {
-      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập bị từ chối! Yêu cầu quyền Nhà Phát Triển.')], ephemeral: true });
+      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập bị từ chối! Yêu cầu quyền Nhà Phát Triển.')], flags: MessageFlags.Ephemeral });
     }
 
     const sub = interaction.options.getSubcommand();
@@ -421,7 +443,7 @@ module.exports = {
       if (!ALL_ITEM_KEYS.includes(itemKey)) {
         return interaction.reply({
           embeds: [errorEmbed(`Item **${itemKey}** không tồn tại!\nDanh sách hợp lệ: nguyên liệu, bánh thường, shiny_bánh.`)],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -442,7 +464,7 @@ module.exports = {
             `💳 Kho hiện tại: **${user.inventory[itemKey]}**`,
           ].join('\n'),
         )],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -472,7 +494,7 @@ module.exports = {
         config.allowedChannels = config.allowedChannels.filter(id => id !== channel.id);
       }
       await config.save();
-      await interaction.reply({ embeds: [successEmbed('⚙️ Cấu Hình Kênh', `Đã **${action === 'add' ? 'THÊM' : 'XÓA'}** kênh ${channel} khỏi danh sách được phép dùng bot.\n*(Nếu danh sách trống, bot sẽ hoạt động ở mọi kênh)*`)], ephemeral: true });
+      await interaction.reply({ embeds: [successEmbed('⚙️ Cấu Hình Kênh', `Đã **${action === 'add' ? 'THÊM' : 'XÓA'}** kênh ${channel} khỏi danh sách được phép dùng bot.\n*(Nếu danh sách trống, bot sẽ hoạt động ở mọi kênh)*`)], flags: MessageFlags.Ephemeral });
     }
 
     // ── /admin coins ──────────────────────────────────────────────────────────
@@ -497,7 +519,7 @@ module.exports = {
             `💳 Xu mới: **${newCoins.toLocaleString('vi-VN')}** xu`,
           ].join('\n'),
         )],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -520,7 +542,7 @@ module.exports = {
             `🎯 Cấp độ hiện tại: **Cấp ${newLevel}**`,
           ].join('\n'),
         )],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -547,43 +569,46 @@ module.exports = {
           '✅ Đã Reset Hồi Chiêu',
           `👤 **${target.displayName}** — Đã reset hồi chiêu: **${label[type]}**`,
         )],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     // ── /admin reset ──────────────────────────────────────────────────────────
     else if (sub === 'reset') {
       const target  = interaction.options.getUser('nguoi_choi');
+      const type    = interaction.options.getString('loai');
       const confirm = interaction.options.getBoolean('xac_nhan');
 
       if (!confirm) {
         return interaction.reply({
-          embeds: [errorEmbed('Bạn phải nhập `xac_nhan: True` để xác nhận xóa dữ liệu!')],
-          ephemeral: true,
+          embeds: [errorEmbed('Bạn phải chọn xác nhận là True để xóa dữ liệu!')],
+          flags: MessageFlags.Ephemeral,
         });
       }
 
-      // Xóa user document và toàn bộ shop listings của họ
-      await Promise.all([
-        User.deleteOne({ userId: target.id, guildId: interaction.guildId }),
-        ShopListing.deleteMany({ sellerId: target.id, guildId: interaction.guildId }),
-      ]);
-
-      await interaction.reply({
-        embeds: [successEmbed(
-          '⚠️ Đã Xóa Dữ Liệu',
-          [
-            `👤 **${target.displayName}** — Toàn bộ dữ liệu game đã bị xóa.`,
-            `*(Bao gồm: kho đồ, xu, EXP, shop listings)*`,
-          ].join('\n'),
-        )],
-        ephemeral: true,
-      });
+      if (type === 'all') {
+        await Promise.all([User.deleteOne({ userId: target.id, guildId: interaction.guildId }), ShopListing.deleteMany({ sellerId: target.id, guildId: interaction.guildId })]);
+        await interaction.reply({
+          embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **${target.displayName}** — Toàn bộ dữ liệu game đã bị xóa.\n*(Bao gồm: kho đồ, xu, EXP, shop listings)*`)],
+          flags: MessageFlags.Ephemeral,
+        });
+      } else {
+        const user = await getOrCreate(target.id, interaction.guildId, target.username);
+        if (type === 'coins') user.coins = 0;
+        if (type === 'inv') user.inventory = {};
+        if (type === 'exp') user.exp = 0;
+        user.markModified('inventory');
+        await user.save();
+        await interaction.reply({
+          embeds: [successEmbed('⚠️ Đã Xóa Dữ Liệu', `👤 **${target.displayName}** — Đã xóa dữ liệu: **${type.toUpperCase()}**.`)],
+          flags: MessageFlags.Ephemeral,
+        });
+      }
     }
 
     // ── /admin stats ──────────────────────────────────────────────────────────
     else if (sub === 'stats') {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       // Truy vấn thống kê song song để giảm latency
       const [
@@ -653,7 +678,7 @@ module.exports = {
           ].join('\n'),
           COLORS.error,
         )],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -672,7 +697,7 @@ module.exports = {
           '✅ Đã Bỏ Cấm',
           `👤 **${target.displayName}** có thể sử dụng bot trở lại.`,
         )],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 

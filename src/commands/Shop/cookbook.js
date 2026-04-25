@@ -100,7 +100,8 @@ module.exports = {
    * customId: cookbook:page:prev | cookbook:page:next
    */
   async handleComponent(interaction) {
-    const dir = interaction.customId.split(':')[2]; // 'prev' hoặc 'next'
+    const parts = interaction.customId.split(':');
+    const dir   = parts[2]; // 'prev' hoặc 'next'
 
     if (parts[1] === 'open') {
       return interaction.update({
@@ -116,9 +117,10 @@ module.exports = {
       ? Math.min(current + 1, TOTAL_PAGES - 1)
       : Math.max(current - 1, 0);
 
+    const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bake'));
     await interaction.update({
       embeds:     [buildPage(next)],
-      components: [buildNav(next, true)],
+      components: [buildNav(next, hasBack)],
     });
   },
 };

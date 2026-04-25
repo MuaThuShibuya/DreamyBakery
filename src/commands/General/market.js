@@ -186,7 +186,7 @@ module.exports = {
       );
       const menu   = buildSellSelect(user.inventory);
       if (!menu) {
-        return interaction.update({ embeds: [errorEmbed('Kho của bạn trống! Hãy thu hoạch và nướng bánh trước nhé 🌿')], components: [] });
+        return interaction.update({ embeds: [errorEmbed('Kho của bạn trống! Hãy thu hoạch và nướng bánh trước nhé 🌿')], components: [row(btn('market:back', '◀ Quay Lại', 'Secondary'))] });
       }
       await interaction.update({
         embeds:     [bakeryEmbed('💰 Bán Hàng', `> *Bạn có **${user.coins.toLocaleString('vi-VN')} xu**. Chọn vật phẩm muốn bán:*`, COLORS.gold)],
@@ -197,7 +197,7 @@ module.exports = {
 
     // ── Quay lại màn chợ chính ───────────────────────────────────────────────
     if (action === 'back' || action === 'cancel') {
-      const hasBack = interaction.message.components.length > 1; // Dòng 2 chứa nút Quay lại Menu
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:trade'));
       const comps = [row(btn('market:show_buy', '🛒 Mua Nguyên Liệu', 'Primary'), btn('market:show_sell', '💰 Bán Hàng', 'Success'))];
       if (hasBack) comps.push(row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary')));
 

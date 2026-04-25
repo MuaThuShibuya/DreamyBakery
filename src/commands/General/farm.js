@@ -51,7 +51,7 @@ async function buildFarmEmbed(user) {
           ? '✅ **Trang trại đã sẵn sàng để thu hoạch!**'
           : `⏰ **Hồi chiêu còn:** \`${formatMs(remaining)}\``,
         '',
-        `*Mỗi lần thu hoạch phải chờ **1 giờ** 🕐*`,
+        `*Mỗi lần thu hoạch phải chờ **10 phút** 🕐*`,
       ].join('\n'),
       isReady ? COLORS.success : COLORS.warning,
     ),

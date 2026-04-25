@@ -99,7 +99,7 @@ module.exports = {
 
       if (!options.length) return interaction.update({ embeds: [errorEmbed('Kho của bạn không có bánh nào để ném! 😱')], components: [row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))] });
 
-      const menu = selectMenu(`nem:throw:${targetId}`, '🎯 Chọn đạn (bánh) để ném...', options);
+      const menu = selectMenu(`nem:throw:${targetId}`, '🎯 Chọn đạn (bánh) để ném...', options.slice(0, 25));
       return interaction.update({
         embeds: [bakeryEmbed('🎯 Sẵn Sàng Chiến Đấu', 'Chọn loại bánh bạn muốn chọi vào mặt đối thủ!', COLORS.warning)],
         components: [row(menu)]

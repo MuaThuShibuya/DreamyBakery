@@ -193,11 +193,11 @@ module.exports = {
       );
       const activeJobs = (user.bakingQueue || []).filter(j => new Date(j.finishTime) > new Date()).length;
       if (activeJobs >= MAX_QUEUE) {
-        return interaction.update({ embeds: [errorEmbed(`Lò nướng đầy! Hàng chờ: **${activeJobs}/${MAX_QUEUE}**.\nDùng \`.oven\` để lấy bánh đã xong trước nhé! 🔥`)], components: [row(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'))] });
+        return interaction.update({ embeds: [errorEmbed(`Lò nướng của bạn đã đầy (**${activeJobs}/${MAX_QUEUE}**).\nVui lòng qua lò nướng lấy bánh đã xong ra trước nhé! 🔥`)], components: [row(btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] });
       }
       const recipes = getAvailableRecipes(user.inventory);
       if (!recipes.length) {
-        return interaction.update({ embeds: [errorEmbed('Không đủ nguyên liệu để nướng bất kỳ loại bánh nào!\nDùng `.garden` và `.farm` để thu hoạch thêm nhé 🌿')], components: [row(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'))] });
+        return interaction.update({ embeds: [errorEmbed('Bạn đang thiếu nguyên liệu!\nHãy kiểm tra Sổ Tay Công Thức và ra Vườn / Nông Trại để thu hoạch thêm nhé 🌿')], components: [row(btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] });
       }
       return interaction.update({
         embeds: [bakeryEmbed(
@@ -209,7 +209,7 @@ module.exports = {
             `Bạn đủ nguyên liệu cho **${recipes.length}** loại bánh:`
           ].join('\n'), COLORS.warning
         )],
-        components: [row(buildBakeMenu(recipes)), row(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'))]
+        components: [row(buildBakeMenu(recipes)), row(btn('menu:section:bake', '◀ Về Bếp', 'Secondary'), btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))]
       });
     }
 
@@ -226,7 +226,7 @@ module.exports = {
         return interaction.update({ embeds: [errorEmbed('Nguyên liệu không còn đủ!')], components: [row(btn('bake:open', '◀ Quay Lại', 'Secondary'))] });
       }
 
-      const hasBack = interaction.message.components.length > 1; // if menu back button is present
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'bake:open'));
 
       // Hiển thị chi tiết công thức cho 1 cái
       const ingrLines = Object.entries(itemData.recipe).map(([k, v]) =>
@@ -281,7 +281,7 @@ module.exports = {
         ? `\n*(Lò cấp ${ovenLvl} giảm ${100 - Math.round(timeMult * 100)}% thời gian)*`
         : '';
         
-      const hasBack = interaction.message.components[0].components.some(c => c.customId === 'bake:open');
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'bake:open'));
 
       await interaction.update({
         embeds: [bakeryEmbed(
@@ -334,7 +334,7 @@ module.exports = {
       }
       user.markModified('inventory');
 
-      const hasBack = interaction.message.components[0].components.some(c => c.customId === 'bake:open');
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'bake:open'));
       const isShiny = Math.random() < itemData.shinyChance;
 
       // Bánh Basic = Instant Bake
@@ -354,7 +354,11 @@ module.exports = {
               `📦 Đã được cất tự động vào Kho Đồ.`,
             ].filter(Boolean).join('\n'),
           )],
-          components: hasBack ? [row(btn('bake:open', '◀ Tiếp tục nướng', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] : [],
+          components: [
+            row(btn('bake:open', '◀ Tiếp Tục Nướng', 'Primary')),
+            // Tự động giữ lại các nút điều hướng nếu đến từ Menu
+            ...(hasBack ? [row(btn('menu:section:bake', '◀ Về Bếp', 'Secondary'), btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))] : [])
+          ],
         });
       }
 
@@ -379,16 +383,20 @@ module.exports = {
             `📋 Dùng \`.oven\` để theo dõi và lấy bánh!`,
           ].filter(Boolean).join('\n'),
         )],
-        components: hasBack ? [row(btn('bake:open', '◀ Tiếp tục nướng', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] : [],
+        components: [
+          row(btn('bake:open', '◀ Tiếp Tục Nướng', 'Primary')),
+          // Tự động giữ lại các nút điều hướng nếu đến từ Menu
+          ...(hasBack ? [row(btn('menu:section:bake', '◀ Về Bếp', 'Secondary'), btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))] : [])
+        ],
       });
     }
 
     // ── Hủy ─────────────────────────────────────────────────────────────────
     else if (action === 'cancel') {
-      const hasBack = interaction.message.components[0].components.some(c => c.customId === 'bake:open');
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'bake:open'));
       await interaction.update({
         embeds:     [bakeryEmbed('❌ Đã Hủy', 'Bạn đã hủy việc nướng bánh.', COLORS.error)],
-        components: hasBack ? [row(btn('bake:open', '◀ Nướng Bánh', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary'))] : [],
+        components: [row(btn('bake:open', '◀ Nướng Lại', 'Primary'), ...(hasBack ? [btn('menu:section:bake', '◀ Về Bếp', 'Secondary')] : []))],
       });
     }
   },

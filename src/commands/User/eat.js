@@ -62,7 +62,20 @@ module.exports = {
       user.hp = Math.min(100, user.hp + heal);
       await user.save();
 
-      return interaction.editReply({ embeds: [successEmbed('😋 Măm măm!', `Bạn đã ăn một chiếc **${info.emoji} ${info.name}** cực kỳ ngon miệng!\n\n💚 Hồi phục **${heal} HP**!\n❤️ HP hiện tại: **${Math.floor(user.hp)}/100**`)], components: [row(btn('eat:open', 'Tiếp tục ăn', 'Primary'), btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'))] });
+      return interaction.editReply({
+        embeds: [bakeryEmbed(
+          '😋 Ngon Quá Đi Mất!',
+          [
+            `Bạn vừa thưởng thức một chiếc **${info.emoji} ${info.name}** vô cùng thơm ngon~ 🌸`,
+            `> *Cảm giác năng lượng tuôn trào trong cơ thể!*`,
+            '',
+            `💚 Hồi phục: **+${heal} HP**`,
+            `❤️ Thể lực hiện tại: **${Math.floor(user.hp)}/100**`
+          ].join('\n'),
+          COLORS.success
+        )],
+        components: [row(btn('eat:open', '🍰 Tiếp Tục Ăn', 'Primary'), btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'))]
+      });
     }
   }
 };

@@ -156,28 +156,38 @@ const PETS = {
   mushroom:    { name: 'Nấm Lùn',      emoji: '🍄', rank: 'B', baseStats: { hp: 60, atk:  8, def: 10, spd:  2 } },
   mouse:       { name: 'Chuột Nhắt',   emoji: '🐭', rank: 'B', baseStats: { hp: 30, atk: 15, def:  2, spd: 15 } },
   turtle:      { name: 'Rùa Đồng',     emoji: '🐢', rank: 'B', baseStats: { hp: 80, atk:  5, def: 15, spd:  1 } },
+  frog:        { name: 'Ếch Xanh',     emoji: '🐸', rank: 'B', baseStats: { hp: 40, atk: 12, def:  5, spd: 20 } },
+  snail:       { name: 'Ốc Sên',       emoji: '🐌', rank: 'B', baseStats: { hp: 90, atk:  4, def: 20, spd:  1 } },
   // Rank A (Thú cưng hoang dã)
   wolf:        { name: 'Chó Sói',      emoji: '🐺', rank: 'A', baseStats: { hp: 70, atk: 25, def: 10, spd: 15 } },
   wildcat:     { name: 'Mèo Rừng',     emoji: '🐱', rank: 'A', baseStats: { hp: 50, atk: 30, def:  5, spd: 20 } },
   fox:         { name: 'Cáo Đỏ',       emoji: '🦊', rank: 'A', baseStats: { hp: 60, atk: 20, def:  8, spd: 25 } },
   boar:        { name: 'Lợn Rừng',     emoji: '🐗', rank: 'A', baseStats: { hp: 90, atk: 22, def: 15, spd:  8 } },
   panda:       { name: 'Gấu Trúc',     emoji: '🐼', rank: 'A', baseStats: { hp:100, atk: 15, def: 20, spd:  5 } },
+  deer:        { name: 'Hươu Sao',     emoji: '🦌', rank: 'A', baseStats: { hp: 80, atk: 18, def: 12, spd: 28 } },
+  monkey:      { name: 'Khỉ Nâu',      emoji: '🐒', rank: 'A', baseStats: { hp: 65, atk: 25, def:  8, spd: 30 } },
   // Rank S (Thú cưng linh thú)
   fire_fox:    { name: 'Hỏa Hồ Ly',    emoji: '🔥', rank: 'S', baseStats: { hp:120, atk: 45, def: 20, spd: 35 } },
   ice_wolf:    { name: 'Sói Băng',     emoji: '❄️', rank: 'S', baseStats: { hp:150, atk: 40, def: 25, spd: 30 } },
   treant:      { name: 'Mộc Tinh',     emoji: '🌳', rank: 'S', baseStats: { hp:200, atk: 20, def: 40, spd: 10 } },
   earth_dragon:{ name: 'Rồng Đất',     emoji: '🦎', rank: 'S', baseStats: { hp:180, atk: 35, def: 35, spd: 15 } },
   fairy:       { name: 'Yêu Tinh',     emoji: '🧚', rank: 'S', baseStats: { hp: 90, atk: 50, def: 15, spd: 40 } },
+  griffin:     { name: 'Điểu Sư',      emoji: '🦅', rank: 'S', baseStats: { hp:130, atk: 48, def: 22, spd: 45 } },
+  thunder_bird:{ name: 'Lôi Điểu',     emoji: '⚡', rank: 'S', baseStats: { hp:110, atk: 55, def: 18, spd: 50 } },
   // Rank SS (Thần thú)
   phoenix:     { name: 'Phượng Hoàng', emoji: '🦚', rank: 'SS',baseStats: { hp:250, atk: 80, def: 40, spd: 60 } },
   unicorn:     { name: 'Kỳ Lân',       emoji: '🦄', rank: 'SS',baseStats: { hp:300, atk: 60, def: 60, spd: 50 } },
   white_tiger: { name: 'Bạch Hổ',      emoji: '🐅', rank: 'SS',baseStats: { hp:220, atk:100, def: 30, spd: 70 } },
   black_turtle:{ name: 'Huyền Vũ',     emoji: '🐢', rank: 'SS',baseStats: { hp:400, atk: 40, def:100, spd: 20 } },
+  pegasus:     { name: 'Thiên Mã',     emoji: '🐎', rank: 'SS',baseStats: { hp:280, atk: 75, def: 45, spd: 90 } },
+  cerberus:    { name: 'Khuyển Ngục',  emoji: '🐕‍🦺', rank: 'SS',baseStats: { hp:350, atk: 85, def: 55, spd: 40 } },
   // Rank SSS (Cổ đại - Tối thượng)
   dark_dragon: { name: 'Hắc Long',     emoji: '🐉', rank: 'SSS',baseStats:{ hp:500, atk:150, def: 80, spd: 90 } },
   leviathan:   { name: 'Leviathan',    emoji: '🐋', rank: 'SSS',baseStats:{ hp:800, atk: 90, def:120, spd: 50 } },
   ninetails:   { name: 'Cửu Vĩ Hồ',    emoji: '🦊', rank: 'SSS',baseStats:{ hp:400, atk:180, def: 60, spd:120 } },
   angel:       { name: 'Thiên Thần',   emoji: '👼', rank: 'SSS',baseStats:{ hp:600, atk:120, def:100, spd:100 } },
+  bahamut:     { name: 'Bahamut',      emoji: '🐲', rank: 'SSS',baseStats:{ hp:750, atk:200, def: 90, spd: 60 } },
+  valkyrie:    { name: 'Valkyrie',     emoji: '🛡️', rank: 'SSS',baseStats:{ hp:550, atk:160, def:110, spd:110 } },
 };
 
 // ─── Nâng cấp ────────────────────────────────────────────────────────────────
@@ -241,8 +251,8 @@ const FARM_HARVEST = {
 
 /** Thời gian hồi chiêu của các hành động chính (đơn vị: ms). */
 const COOLDOWNS = {
-  garden: 30 * 60 * 1000,      // 30 phút
-  farm:   60 * 60 * 1000,      // 1 giờ
+  garden: 5 * 60 * 1000,       // 5 phút
+  farm:   10 * 60 * 1000,      // 10 phút
   sneak:  2  * 60 * 60 * 1000, // 2 giờ
 };
 

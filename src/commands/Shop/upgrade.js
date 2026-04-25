@@ -120,7 +120,7 @@ module.exports = {
 
       const user    = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const current = user.upgrades[key] || 0;
-      const hasBack = interaction.message.components.length > 2;
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery'));
 
       // Kiểm tra đã max chưa
       if (current >= u.maxLevel) {

@@ -51,7 +51,7 @@ module.exports = {
     .setDescription('🐾 Quản lý và huấn luyện Thú Cưng'),
 
   async execute(interaction) {
-    return interaction.reply({ content: 'Vui lòng sử dụng qua Bảng điều khiển trung tâm (`!menu`).', ephemeral: true });
+    return interaction.reply({ content: 'Vui lòng sử dụng qua Bảng điều khiển trung tâm (`.menu`).', ephemeral: true });
   },
 
   async handleComponent(interaction) {
@@ -82,7 +82,7 @@ module.exports = {
       const btns = row(
         btn('pet:gacha_1', `🥚 Ấp 1 Lần`, 'Primary', user.coins < GACHA_COST),
         btn('pet:gacha_10', `🥚 Ấp 10 Lần`, 'Success', user.coins < GACHA_COST * 10),
-        btn('pet:list', `📖 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0),
+        btn('pet:list:0', `📖 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0),
         btn('pet:feed_menu', '🧁 Cường Hóa (Cho ăn)', 'Success', !activePet),
       );
       return interaction.update({ embeds: [bakeryEmbed('🐾 Trại Thú Cưng', desc, COLORS.success)], components: [btns] });
@@ -123,22 +123,128 @@ module.exports = {
 
     // ── Kho Pet & Chọn Pet ────────────────────────────────────────────────
     if (action === 'list') {
+      const page = parseInt(parts[2]) || 0;
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      const options = user.pets.slice(0, 25).map(p => {
+      const totalPets = user.pets.length;
+
+      if (totalPets === 0) {
+        return interaction.update({
+          embeds: [errorEmbed('Bạn chưa có Thú Cưng nào! Hãy ấp trứng nhé.')],
+          components: [row(btn('pet:open', '◀ Quay Lại', 'Secondary'))]
+        });
+      }
+
+      const maxPage = Math.ceil(totalPets / 25) - 1;
+      const safePage = Math.max(0, Math.min(page, maxPage));
+
+      const options = user.pets.slice(safePage * 25, (safePage + 1) * 25).map(p => {
         const info = PETS[p.petKey];
         return { label: `${info.emoji} ${p.name} (Lv.${p.level} | ${p.stars || 0}🌟)`, description: `Hạng ${info.rank} - Lực chiến: ${calcBP(p.stats)}`, value: p._id.toString() };
       });
+
+      const components = [];
+      
+      // Dropdown chọn pet
+      components.push(row(selectMenu('pet:view_pet', '🐾 Chọn xem thông tin thú cưng...', options)));
+      
+      // Dropdown chuyển trang (nếu có hơn 1 trang)
+      if (maxPage > 0) {
+        const pageOptions = [];
+        const limit = Math.min(maxPage + 1, 25); // Tối đa 25 option trong dropdown
+        for (let i = 0; i < limit; i++) {
+          pageOptions.push({
+            label: `Trang ${i + 1}`,
+            description: `Hiển thị thú cưng từ ${i * 25 + 1} đến ${Math.min((i + 1) * 25, totalPets)}`,
+            value: i.toString(),
+            default: i === safePage
+          });
+        }
+        components.push(row(selectMenu('pet:page_select', '📑 Nhảy nhanh đến trang...', pageOptions)));
+      }
+
+      components.push(row(btn('pet:open', '◀ Quay Lại Trại Thú', 'Secondary')));
+
       return interaction.update({
-        embeds: [bakeryEmbed('📖 Kho Thú Cưng', 'Chọn một Thú Cưng để đặt làm Đồng Hành chính:', COLORS.primary)],
-        components: [row(selectMenu('pet:select', '🐾 Đặt làm Đồng Hành...', options)), row(btn('pet:open', '◀ Quay Lại', 'Secondary'))]
+        embeds: [bakeryEmbed(`📖 Kho Thú Cưng (Trang ${safePage + 1}/${maxPage + 1})`, `Bạn đang sở hữu tổng cộng **${totalPets}** thú cưng.\nChọn một thú cưng bên dưới để quản lý hoặc phóng sinh:`, COLORS.primary)],
+        components
+      });
+    }
+
+    // Nhảy trang thông qua Dropdown
+    if (action === 'page_select') {
+      const targetPage = interaction.values[0];
+      interaction.customId = `pet:list:${targetPage}`;
+      return this.handleComponent(interaction);
+    }
+
+    // Xem thông tin chi tiết của 1 Pet cụ thể (Để chọn đồng hành hoặc Phóng sinh)
+    if (action === 'view_pet') {
+      const petId = interaction.values[0];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const pet = user.pets.find(p => p._id.toString() === petId);
+      
+      if (!pet) return interaction.update({ embeds: [errorEmbed('Không tìm thấy thú cưng này!')], components: [row(btn('pet:list:0', '◀ Quay Lại', 'Secondary'))] });
+
+      const info = PETS[pet.petKey];
+      const bp = calcBP(pet.stats);
+      const stars = pet.stars || 0;
+      const starStr = stars > 0 ? `[${'🌟'.repeat(Math.min(stars, 5))}${stars > 5 ? `+${stars-5}` : ''}]` : '';
+      const isActive = user.activePetId && user.activePetId.toString() === petId;
+
+      // Định giá Phóng sinh (Base + Level * 500 xu)
+      const baseValue = info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
+      const releaseValue = baseValue + (pet.level * 500);
+
+      const desc = [
+        `**${info.emoji} ${pet.name}** ${starStr}`,
+        `> Hạng: **${info.rank}** ${PET_RANKS[info.rank].color}`,
+        `> Cấp độ: **${pet.level}**  |  EXP: **${pet.exp}/${pet.level * 100}**`,
+        `> Lực chiến (BP): **${bp}**`,
+        '',
+        `❤️ HP: **${pet.stats.hp}** | 🗡️ ATK: **${pet.stats.atk}**\n🛡️ DEF: **${pet.stats.def}** | 💨 SPD: **${pet.stats.spd}**`,
+        '',
+        isActive ? `✨ *Đây đang là thú cưng đồng hành của bạn.*` : `*Bạn có muốn đặt làm đồng hành hay phóng sinh?*`
+      ].join('\n');
+
+      return interaction.update({
+        embeds: [bakeryEmbed('🐾 Thông Tin Thú Cưng', desc, COLORS.primary)],
+        components: [
+          row(btn(`pet:select:${petId}`, '🌟 Đặt Làm Đồng Hành', 'Success', isActive), btn(`pet:release:${petId}`, `🕊️ Phóng Sinh (+${releaseValue} xu)`, 'Danger', isActive)),
+          row(btn('pet:list:0', '◀ Quay Lại Kho Pet', 'Secondary'))
+        ]
       });
     }
 
     if (action === 'select') {
-      const petId = interaction.values[0];
+      const petId = parts[2];
       await User.updateOne({ userId: interaction.user.id, guildId: interaction.guildId }, { activePetId: petId });
       interaction.customId = 'pet:open'; // Gọi lại màn chính
       return this.handleComponent(interaction);
+    }
+
+    // Thực hiện Phóng sinh
+    if (action === 'release') {
+      const petId = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const pet = user.pets.find(p => p._id.toString() === petId);
+      
+      if (!pet) return interaction.update({ embeds: [errorEmbed('Thú cưng không tồn tại hoặc đã được phóng sinh!')], components: [row(btn('pet:list:0', '◀ Quay Lại', 'Secondary'))] });
+      if (user.activePetId && user.activePetId.toString() === petId) {
+        return interaction.update({ embeds: [errorEmbed('Không thể phóng sinh thú cưng đang đồng hành!')], components: [row(btn('pet:list:0', '◀ Quay Lại', 'Secondary'))] });
+      }
+
+      const info = PETS[pet.petKey];
+      const baseValue = info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
+      const releaseValue = baseValue + (pet.level * 500);
+
+      user.coins += releaseValue;
+      user.pets = user.pets.filter(p => p._id.toString() !== petId); // Loại bỏ pet khỏi mảng
+      await user.save();
+
+      return interaction.update({
+        embeds: [successEmbed('🕊️ Phóng Sinh Thành Công', `Bạn đã thả tự do cho **${info.emoji} ${pet.name}** về với thiên nhiên.\nĐể cảm tạ, thú cưng đã để lại cho bạn **${releaseValue.toLocaleString()} xu**!`)],
+        components: [row(btn('pet:list:0', '◀ Quay Lại Kho Pet', 'Secondary'))]
+      });
     }
 
     // ── 3. Menu Cường Hóa (Chọn Bánh) ─────────────────────────────────────

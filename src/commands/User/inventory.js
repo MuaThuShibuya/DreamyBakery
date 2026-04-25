@@ -180,7 +180,7 @@ module.exports = {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       if (!user) return interaction.update({ embeds: [errorEmbed('Bạn chưa có tài khoản!')], components: [] });
 
-      const hasBack = interaction.message.components.length > 1;
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery' || c.customId === 'menu:home'));
       const comps = [buildNav(page)];
       if (hasBack) comps.push(row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary')));
 
