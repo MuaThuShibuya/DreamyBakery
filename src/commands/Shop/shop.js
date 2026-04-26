@@ -18,8 +18,8 @@
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
 const User        = require('../../models/User');
 const ShopListing = require('../../models/ShopListing');
-const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
-const { BAKED_GOODS, COLORS, BAKED_KEYS } = require('../../utils/constants');
+const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../../utils/embeds');
+const { BAKED_GOODS, COLORS, BAKED_KEYS, INGREDIENTS, INGR_KEYS } = require('../../utils/constants');
 const { getItemInfo, chunkArray } = require('../../utils/gameUtils');
 
 /** Số listing hiển thị mỗi trang */
@@ -117,6 +117,26 @@ function buildShopComponents(listings, page, total, userId) {
   return components;
 }
 
+/**
+ * Lấy danh sách vật phẩm người chơi đang có để hiển thị trên Select Menu
+ */
+function getInventoryOptions(inventory) {
+  const options = [];
+  for (const k of INGR_KEYS) {
+    const qty = inventory[k] || 0;
+    if (qty > 0) options.push({ name: `${INGREDIENTS[k].emoji} ${INGREDIENTS[k].name} (×${qty})`, value: k });
+  }
+  for (const k of BAKED_KEYS) {
+    const qty      = inventory[k]             || 0;
+    const shinyQty = inventory[`shiny_${k}`] || 0;
+    const info     = BAKED_GOODS[k];
+
+    if (qty > 0)      options.push({ name: `${info.emoji} ${info.name} (×${qty})`,               value: k });
+    if (shinyQty > 0) options.push({ name: `✨ ${info.name} Thượng Hạng (×${shinyQty})`,          value: `shiny_${k}` });
+  }
+  return options;
+}
+
 // ─── Module export ───────────────────────────────────────────────────────────
 
 module.exports = {
@@ -179,23 +199,31 @@ module.exports = {
         return interaction.reply({ embeds: [errorEmbed('🔒 Bạn không có giấy phép kinh doanh!\nChỉ Nhà Phát Triển hoặc người được cấp quyền mới có thể đăng bán hàng trên Shop Thương Mại.')], ephemeral: true });
       }
 
-      // Liệt kê các loại bánh hợp lệ để user biết cần nhập gì
-      const validKeys = [...BAKED_KEYS, ...BAKED_KEYS.map(k => `shiny_${k}`)];
-      const hint      = BAKED_KEYS[0];
+      const options = getInventoryOptions(user.inventory).slice(0, 25);
+      if (!options.length) {
+        return interaction.reply({ embeds: [errorEmbed('Kho của bạn đang trống rỗng, không có gì để đăng bán cả!')], ephemeral: true });
+      }
+
+      const smOptions = options.map(o => ({ label: o.name.substring(0, 100), value: o.value }));
+      const menu = selectMenu('shop:select_list_item', '📦 Chọn vật phẩm muốn bán...', smOptions);
+      
+      return interaction.reply({
+        embeds: [bakeryEmbed('📦 Chọn Vật Phẩm Đăng Bán', 'Vui lòng chọn một vật phẩm từ kho đồ của bạn để đăng lên Cửa Hàng Trưng Bày:', COLORS.primary)],
+        components: [row(menu)],
+        ephemeral: true
+      });
+    }
+
+    // ── Sau khi Chọn Vật Phẩm Từ Menu -> Mở Modal Nhập Số Lượng & Giá ─────────
+    if (action === 'select_list_item') {
+      const itemKey = interaction.values[0];
+      const info = getItemInfo(itemKey);
 
       const modal = new ModalBuilder()
-        .setCustomId('shop:list_modal')
-        .setTitle('📦 Đăng Bán Sản Phẩm');
+        .setCustomId(`shop:list_modal:${itemKey}`)
+        .setTitle(`📦 Bán: ${info.name.substring(0, 30)}`);
 
       modal.addComponents(
-        new ActionRowBuilder().addComponents(
-          new TextInputBuilder()
-            .setCustomId('item')
-            .setLabel(`Tên bánh (VD: ${hint})`)
-            .setStyle(TextInputStyle.Short)
-            .setPlaceholder('strawberry_cupcake')
-            .setRequired(true),
-        ),
         new ActionRowBuilder().addComponents(
           new TextInputBuilder()
             .setCustomId('quantity')
@@ -347,10 +375,11 @@ module.exports = {
    * @param {ModalSubmitInteraction} interaction
    */
   async handleModal(interaction) {
-    if (interaction.customId !== 'shop:list_modal') return;
+    const parts = interaction.customId.split(':');
+    if (parts[0] !== 'shop' || parts[1] !== 'list_modal') return;
     await interaction.deferReply({ ephemeral: true });
 
-    const itemKey  = interaction.fields.getTextInputValue('item').trim().toLowerCase();
+    const itemKey  = parts[2];
     const qtyRaw   = interaction.fields.getTextInputValue('quantity').trim();
     const priceRaw = interaction.fields.getTextInputValue('price').trim();
 

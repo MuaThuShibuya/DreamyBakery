@@ -11,7 +11,7 @@
 
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const User = require('../../models/User');
-const { successEmbed, errorEmbed, bakeryEmbed, btn, row, selectMenu } = require('../../utils/embeds');
+const { successEmbed, errorEmbed, bakeryEmbed, btn, row, selectMenu, userSelectMenu } = require('../../utils/embeds');
 const { INGREDIENTS, BAKED_GOODS, COLORS, INGR_KEYS, BAKED_KEYS } = require('../../utils/constants');
 const { getItemInfo } = require('../../utils/gameUtils');
 
@@ -225,6 +225,22 @@ module.exports = {
   async handleComponent(interaction) {
     const parts = interaction.customId.split(':');
     const action = parts[1];
+
+    if (action === 'start') {
+      const menu = userSelectMenu('gift:select_user', '👤 Chọn người bạn muốn tặng quà...');
+      return interaction.update({
+        embeds: [bakeryEmbed('🎁 Tặng Quà', 'Vui lòng chọn người bạn muốn tặng quà từ danh sách bên dưới:', COLORS.primary)],
+        components: [row(menu), row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))]
+      });
+    }
+
+    if (action === 'select_user') {
+      const targetId = interaction.values[0];
+      // Đổi thành customId dạng gift:open:ID để nối tiếp flow cũ
+      interaction.customId = `gift:open:${targetId}`;
+      parts = interaction.customId.split(':');
+      action = parts[1];
+    }
 
     if (action === 'open') {
       const targetId = parts[2];
