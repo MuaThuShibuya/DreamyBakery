@@ -120,19 +120,23 @@ function buildShopComponents(listings, page, total, userId) {
 /**
  * Lấy danh sách vật phẩm người chơi đang có để hiển thị trên Select Menu
  */
-function getInventoryOptions(inventory) {
+function getInventoryOptions(inventory, category) {
   const options = [];
-  for (const k of INGR_KEYS) {
-    const qty = inventory[k] || 0;
-    if (qty > 0) options.push({ name: `${INGREDIENTS[k].emoji} ${INGREDIENTS[k].name} (×${qty})`, value: k });
-  }
-  for (const k of BAKED_KEYS) {
-    const qty      = inventory[k]             || 0;
-    const shinyQty = inventory[`shiny_${k}`] || 0;
-    const info     = BAKED_GOODS[k];
-
-    if (qty > 0)      options.push({ name: `${info.emoji} ${info.name} (×${qty})`,               value: k });
-    if (shinyQty > 0) options.push({ name: `✨ ${info.name} Thượng Hạng (×${shinyQty})`,          value: `shiny_${k}` });
+  if (category === 'ing') {
+    for (const k of INGR_KEYS) {
+      const qty = inventory[k] || 0;
+      if (qty > 0) options.push({ name: `${INGREDIENTS[k].emoji} ${INGREDIENTS[k].name} (×${qty})`, value: k });
+    }
+  } else if (category === 'baked') {
+    for (const k of BAKED_KEYS) {
+      const qty = inventory[k] || 0;
+      if (qty > 0) options.push({ name: `${BAKED_GOODS[k].emoji} ${BAKED_GOODS[k].name} (×${qty})`, value: k });
+    }
+  } else if (category === 'shiny') {
+    for (const k of BAKED_KEYS) {
+      const shinyQty = inventory[`shiny_${k}`] || 0;
+      if (shinyQty > 0) options.push({ name: `✨ ${BAKED_GOODS[k].name} Thượng Hạng (×${shinyQty})`, value: `shiny_${k}` });
+    }
   }
   return options;
 }
@@ -199,18 +203,51 @@ module.exports = {
         return interaction.reply({ embeds: [errorEmbed('🔒 Bạn không có giấy phép kinh doanh!\nChỉ Nhà Phát Triển hoặc người được cấp quyền mới có thể đăng bán hàng trên Shop Thương Mại.')], ephemeral: true });
       }
 
-      const options = getInventoryOptions(user.inventory).slice(0, 25);
+      return interaction.reply({
+        embeds: [bakeryEmbed('📦 Đăng Bán — Chọn Danh Mục', '> *Phân loại vật phẩm giúp bạn dễ dàng chọn đúng món đồ muốn đăng lên Cửa Hàng Trưng Bày.*\n\n**Vui lòng chọn danh mục:**', COLORS.primary)],
+        components: [
+          row(
+            btn('shop:list_cat:ing', '🌾 Nguyên Liệu', 'Primary'),
+            btn('shop:list_cat:baked', '🧁 Bánh Thường', 'Primary'),
+            btn('shop:list_cat:shiny', '✨ Thượng Hạng', 'Primary')
+          )
+        ],
+        ephemeral: true
+      });
+    }
+
+    if (action === 'list_back') {
+      return interaction.update({
+        embeds: [bakeryEmbed('📦 Đăng Bán — Chọn Danh Mục', '> *Phân loại vật phẩm giúp bạn dễ dàng chọn đúng món đồ muốn đăng lên Cửa Hàng Trưng Bày.*\n\n**Vui lòng chọn danh mục:**', COLORS.primary)],
+        components: [
+          row(
+            btn('shop:list_cat:ing', '🌾 Nguyên Liệu', 'Primary'),
+            btn('shop:list_cat:baked', '🧁 Bánh Thường', 'Primary'),
+            btn('shop:list_cat:shiny', '✨ Thượng Hạng', 'Primary')
+          )
+        ]
+      });
+    }
+
+    if (action === 'list_cat') {
+      const cat = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const options = getInventoryOptions(user.inventory, cat).slice(0, 25);
+      
       if (!options.length) {
-        return interaction.reply({ embeds: [errorEmbed('Kho của bạn đang trống rỗng, không có gì để đăng bán cả!')], ephemeral: true });
+        return interaction.update({
+          embeds: [errorEmbed('Bạn không có vật phẩm nào trong danh mục này để đăng bán!')],
+          components: [row(btn('shop:list_back', '◀ Chọn Danh Mục Khác', 'Secondary'))]
+        });
       }
 
       const smOptions = options.map(o => ({ label: o.name.substring(0, 100), value: o.value }));
       const menu = selectMenu('shop:select_list_item', '📦 Chọn vật phẩm muốn bán...', smOptions);
-      
-      return interaction.reply({
-        embeds: [bakeryEmbed('📦 Chọn Vật Phẩm Đăng Bán', 'Vui lòng chọn một vật phẩm từ kho đồ của bạn để đăng lên Cửa Hàng Trưng Bày:', COLORS.primary)],
-        components: [row(menu)],
-        ephemeral: true
+      const catName = cat === 'ing' ? '🌾 Nguyên Liệu' : cat === 'baked' ? '🧁 Bánh Thường' : '✨ Bánh Thượng Hạng';
+
+      return interaction.update({
+        embeds: [bakeryEmbed(`📦 Đăng Bán — ${catName}`, 'Vui lòng chọn một vật phẩm từ danh sách bên dưới để bắt đầu nhập giá bán:', COLORS.primary)],
+        components: [row(menu), row(btn('shop:list_back', '◀ Chọn Danh Mục Khác', 'Secondary'))]
       });
     }
 

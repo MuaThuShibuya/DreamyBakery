@@ -179,11 +179,7 @@ module.exports = {
     const action = parts[1];
 
     // Kiểm tra bảo mật Back-end chặn Nông Dân lách luật qua API
-    const userSec = await User.findOneAndUpdate(
-      { userId: interaction.user.id, guildId: interaction.guildId },
-      { $setOnInsert: { username: interaction.user.username } },
-      { upsert: true, new: true }
-    );
+    const userSec = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
     if (!isShopOrAbove(interaction.user.id, userSec)) {
       return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới có thể Nướng Bánh.')], ephemeral: true });
     }

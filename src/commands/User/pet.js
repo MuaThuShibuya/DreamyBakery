@@ -158,12 +158,12 @@ module.exports = {
       
       // Dropdown Lọc phẩm chất
       const filterOptions = [
-        { label: 'Tất cả phẩm chất', value: 'ALL', default: currentFilter === 'ALL' },
-        { label: 'Chỉ hiển thị Hạng SSS', value: 'SSS', default: currentFilter === 'SSS' },
-        { label: 'Chỉ hiển thị Hạng SS', value: 'SS', default: currentFilter === 'SS' },
-        { label: 'Chỉ hiển thị Hạng S', value: 'S', default: currentFilter === 'S' },
-        { label: 'Chỉ hiển thị Hạng A', value: 'A', default: currentFilter === 'A' },
-        { label: 'Chỉ hiển thị Hạng B', value: 'B', default: currentFilter === 'B' }
+        { label: 'Tất cả phẩm chất', emoji: '🌈', value: 'ALL', default: currentFilter === 'ALL' },
+        { label: 'Lọc Hạng SSS (Tối thượng)', emoji: '🟡', value: 'SSS', default: currentFilter === 'SSS' },
+        { label: 'Lọc Hạng SS (Thần thú)', emoji: '🟣', value: 'SS', default: currentFilter === 'SS' },
+        { label: 'Lọc Hạng S (Linh thú)', emoji: '🔵', value: 'S', default: currentFilter === 'S' },
+        { label: 'Lọc Hạng A (Hoang dã)', emoji: '🟢', value: 'A', default: currentFilter === 'A' },
+        { label: 'Lọc Hạng B (Cơ bản)', emoji: '⚪', value: 'B', default: currentFilter === 'B' }
       ];
       components.push(row(selectMenu('pet:filter_select', '🔍 Lọc hiển thị theo phẩm chất...', filterOptions)));
 
@@ -187,11 +187,15 @@ module.exports = {
         btn('pet:open', '◀ Quay Lại Trại Thú', 'Secondary')
       ));
 
-      let desc = `Bạn đang sở hữu tổng cộng **${user.pets.length}** thú cưng.\nChọn một thú cưng bên dưới để quản lý, hoặc sử dụng bộ lọc để tìm kiếm:`;
-      if (currentFilter !== 'ALL' && totalPets === 0) desc += `\n\n*(Không có thú cưng nào thuộc Hạng ${currentFilter} cả!)*`;
+      let desc = `**🎒 TỔNG QUAN KHO THÚ CƯNG**\n`;
+      desc += `🐾 Tổng số Pet: **${user.pets.length}**\n`;
+      desc += `🔍 Bộ lọc đang bật: **${currentFilter === 'ALL' ? 'Tất cả' : `Hạng ${currentFilter} ${PET_RANKS[currentFilter].color}`}**\n\n`;
+      desc += `> *Sử dụng menu bên dưới để chọn xem chi tiết một bé Pet, hoặc đổi bộ lọc.*`;
+      
+      if (currentFilter !== 'ALL' && totalPets === 0) desc += `\n\n⚠️ *(Bạn chưa có thú cưng nào thuộc Hạng ${currentFilter} cả!)*`;
 
       return interaction.update({
-        embeds: [bakeryEmbed(`📖 Kho Thú Cưng (Trang ${safePage + 1}/${maxPage + 1})`, desc, COLORS.primary)],
+        embeds: [bakeryEmbed(`📖 Quản Lý Thú Cưng (Trang ${safePage + 1}/${maxPage + 1})`, desc, COLORS.primary)],
         components
       });
     }
@@ -280,21 +284,30 @@ module.exports = {
        const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
        const options = [];
        ['B', 'A', 'S', 'SS', 'SSS'].forEach(rank => {
-          const count = user.pets.filter(p => !p.isLocked && PETS[p.petKey].rank === rank && p._id.toString() !== user.activePetId?.toString()).length;
+          const releaseable = user.pets.filter(p => !p.isLocked && PETS[p.petKey].rank === rank && p._id.toString() !== user.activePetId?.toString());
+          const count = releaseable.length;
           if (count > 0) {
-             options.push({ label: `Tất cả Pet Hạng ${rank} (${count} con)`, description: 'Thao tác không thể hoàn tác!', value: rank });
+             // Tính trước tổng số xu nhận được để làm UX chuyên nghiệp hơn
+             const baseValue = rank === 'SSS' ? 25000 : rank === 'SS' ? 10000 : rank === 'S' ? 5000 : rank === 'A' ? 2500 : 1000;
+             const totalCoins = releaseable.reduce((sum, p) => sum + baseValue + (p.level * 500), 0);
+             options.push({ 
+                label: `Phóng sinh toàn bộ Hạng ${rank}`, 
+                emoji: PET_RANKS[rank].color,
+                description: `Số lượng: ${count} con | Thu về: ${totalCoins.toLocaleString('vi-VN')} xu`, 
+                value: rank 
+             });
           }
        });
 
        if (options.length === 0) {
           return interaction.update({
-             embeds: [errorEmbed('Bạn không có thú cưng nào có thể phóng sinh!\n(Các thú cưng đang khóa hoặc đang đồng hành sẽ không bị ảnh hưởng).')],
+             embeds: [errorEmbed('Bạn không có thú cưng nào có thể phóng sinh!\n*(Các thú cưng đang khóa hoặc đang đồng hành sẽ được bảo vệ an toàn).*')],
              components: [row(btn('pet:list:0:ALL', '◀ Quay Lại Kho Pet', 'Secondary'))]
           });
        }
 
        return interaction.update({
-          embeds: [bakeryEmbed('🕊️ Phóng Sinh Hàng Loạt', 'Chọn Hạng thú cưng bạn muốn phóng sinh.\n**Lưu ý:** Thao tác này sẽ bán TẤT CẢ các pet thuộc hạng đó (ngoại trừ pet đã khóa và pet đang đồng hành).', COLORS.error)],
+          embeds: [bakeryEmbed('🕊️ Phóng Sinh Hàng Loạt', '> *Hãy chọn một Hạng phẩm chất bên dưới. Tất cả thú cưng thuộc Hạng này (chưa bị khóa) sẽ được thả về thiên nhiên.*\n\n⚠️ **Lưu ý:** Thao tác này **KHÔNG THỂ HOÀN TÁC**!', COLORS.error)],
           components: [
              row(selectMenu('pet:mass_release_confirm', '⚠️ Chọn Hạng Pet để phóng sinh...', options)),
              row(btn('pet:list:0:ALL', '◀ Hủy & Quay Lại Kho', 'Secondary'))

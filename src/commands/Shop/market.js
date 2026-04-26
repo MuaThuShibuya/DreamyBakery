@@ -79,36 +79,34 @@ function buildBuySelect() {
 /**
  * Xây SelectMenu danh sách item trong kho người chơi có thể bán.
  * @param {Object} inventory — Inventory của user từ DB
+ * @param {string} category  — 'ing' | 'baked' | 'shiny'
  * @returns {StringSelectMenuBuilder|null} null nếu kho trống
  */
-function buildSellSelect(inventory) {
+function buildSellSelect(inventory, category) {
   const options = [];
 
-  // Thêm nguyên liệu có trong kho và trong bảng giá chợ
-  for (const k of INGR_KEYS) {
-    const qty = inventory[k] || 0;
-    if (qty > 0 && MARKET_PRICES[k]) {
-      const info = INGREDIENTS[k];
-      options.push({
-        label:       `${info.emoji} ${info.name} (×${qty})`,
-        description: `Bán: ${MARKET_PRICES[k].sell} xu/cái`,
-        value:       `ing:${k}`,
-      });
+  if (category === 'ing') {
+    for (const k of INGR_KEYS) {
+      const qty = inventory[k] || 0;
+      if (qty > 0 && MARKET_PRICES[k]) {
+        options.push({ label: `${INGREDIENTS[k].emoji} ${INGREDIENTS[k].name} (×${qty})`, description: `Bán: ${MARKET_PRICES[k].sell} xu/cái`, value: `ing:${k}` });
+      }
     }
-  }
-
-  // Thêm bánh đã nướng
-  for (const k of BAKED_KEYS) {
-    const qty      = inventory[k] || 0;
-    const shinyQty = inventory[`shiny_${k}`] || 0;
-    const data     = BAKED_GOODS[k];
-    if (qty > 0) {
-      const price = Math.floor(data.basePrice * 0.7);
-      options.push({ label: `${data.emoji} ${data.name} (×${qty})`, description: `Bán: ${price} xu/cái`, value: `baked:${k}` });
+  } else if (category === 'baked') {
+    for (const k of BAKED_KEYS) {
+      const qty = inventory[k] || 0;
+      if (qty > 0) {
+        const price = Math.floor(BAKED_GOODS[k].basePrice * 0.7);
+        options.push({ label: `${BAKED_GOODS[k].emoji} ${BAKED_GOODS[k].name} (×${qty})`, description: `Bán: ${price} xu/cái`, value: `baked:${k}` });
+      }
     }
-    if (shinyQty > 0) {
-      const price = Math.floor(data.shinyPrice * 0.7);
-      options.push({ label: `✨ ${data.name} Thượng Hạng (×${shinyQty})`, description: `Bán: ${price} xu/cái`, value: `shiny:${k}` });
+  } else if (category === 'shiny') {
+    for (const k of BAKED_KEYS) {
+      const shinyQty = inventory[`shiny_${k}`] || 0;
+      if (shinyQty > 0) {
+        const price = Math.floor(BAKED_GOODS[k].shinyPrice * 0.7);
+        options.push({ label: `✨ ${BAKED_GOODS[k].name} (Thượng Hạng) (×${shinyQty})`, description: `Bán: ${price} xu/cái`, value: `shiny:${k}` });
+      }
     }
   }
 
@@ -180,20 +178,41 @@ module.exports = {
 
     // ── Hiện SelectMenu bán ──────────────────────────────────────────────────
     if (action === 'show_sell') {
-      const user   = await User.findOneAndUpdate(
-        { userId: interaction.user.id, guildId: interaction.guildId },
-        { $setOnInsert: { username: interaction.user.username } },
-        { upsert: true, new: true },
-      );
-      const menu   = buildSellSelect(user.inventory);
-      if (!menu) {
-        return interaction.update({ embeds: [errorEmbed('Kho của bạn trống! Hãy thu hoạch và nướng bánh trước nhé 🌿')], components: [] });
-      }
       await interaction.update({
-        embeds:     [bakeryEmbed('💰 Bán Hàng', `> *Bạn có **${user.coins.toLocaleString('vi-VN')} xu**. Chọn vật phẩm muốn bán:*`, COLORS.gold)],
-        components: [row(menu), row(btn('market:back', '◀ Quay Lại', 'Secondary'))],
+        embeds: [bakeryEmbed('📦 Chọn Danh Mục Bán Hàng', '> *Kho đồ của bạn có rất nhiều thứ! Để tìm kiếm dễ dàng hơn, hãy chọn một danh mục bên dưới:*', COLORS.gold)],
+        components: [
+          row(
+            btn('market:sell_cat:ing', '🌾 Nguyên Liệu', 'Primary'),
+            btn('market:sell_cat:baked', '🧁 Bánh Thường', 'Primary'),
+            btn('market:sell_cat:shiny', '✨ Thượng Hạng', 'Primary')
+          ),
+          row(btn('market:back', '◀ Quay Lại Chợ', 'Secondary'))
+        ]
       });
       return;
+    }
+
+    // ── Mở danh mục bán ──────────────────────────────────────────────────────
+    if (action === 'sell_cat') {
+      const cat = parts[2];
+      const user = await User.findOneAndUpdate(
+        { userId: interaction.user.id, guildId: interaction.guildId },
+        { $setOnInsert: { username: interaction.user.username } },
+        { upsert: true, new: true }
+      );
+      const menu = buildSellSelect(user.inventory, cat);
+      if (!menu) {
+        return interaction.update({
+          embeds: [errorEmbed('Bạn không có vật phẩm nào thuộc danh mục này để bán cả!\nHãy thu hoạch hoặc nướng thêm bánh nhé.')],
+          components: [row(btn('market:show_sell', '◀ Quay Lại', 'Secondary'))]
+        });
+      }
+      
+      const catName = cat === 'ing' ? '🌾 Nguyên Liệu' : cat === 'baked' ? '🧁 Bánh Thường' : '✨ Bánh Thượng Hạng';
+      return interaction.update({
+        embeds: [bakeryEmbed(`💰 Bán Hàng — ${catName}`, `> *Ví hiện tại: **${user.coins.toLocaleString('vi-VN')} xu***\n\nSử dụng menu bên dưới để chọn vật phẩm bạn muốn bán cho NPC:`, COLORS.gold)],
+        components: [row(menu), row(btn('market:show_sell', '◀ Quay Lại', 'Secondary'))]
+      });
     }
 
     // ── Quay lại màn chợ chính ───────────────────────────────────────────────

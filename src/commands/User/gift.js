@@ -11,7 +11,7 @@
 
 const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const User = require('../../models/User');
-const { successEmbed, errorEmbed, bakeryEmbed, btn, row, selectMenu, userSelectMenu } = require('../../utils/embeds');
+const { successEmbed, errorEmbed, bakeryEmbed, btn, row, selectMenu } = require('../../utils/embeds');
 const { INGREDIENTS, BAKED_GOODS, COLORS, INGR_KEYS, BAKED_KEYS } = require('../../utils/constants');
 const { getItemInfo } = require('../../utils/gameUtils');
 
@@ -42,6 +42,30 @@ function getInventoryOptions(inventory) {
     if (shinyQty > 0) options.push({ name: `✨ ${info.name} Thượng Hạng (×${shinyQty})`,          value: `shiny_${k}` });
   }
 
+  return options;
+}
+
+/**
+ * Lấy vật phẩm theo danh mục cụ thể cho giao diện Select Menu.
+ */
+function getInventoryCategory(inventory, category) {
+  const options = [];
+  if (category === 'ing') {
+    for (const k of INGR_KEYS) {
+      const qty = inventory[k] || 0;
+      if (qty > 0) options.push({ name: `${INGREDIENTS[k].emoji} ${INGREDIENTS[k].name} (×${qty})`, value: k });
+    }
+  } else if (category === 'baked') {
+    for (const k of BAKED_KEYS) {
+      const qty = inventory[k] || 0;
+      if (qty > 0) options.push({ name: `${BAKED_GOODS[k].emoji} ${BAKED_GOODS[k].name} (×${qty})`, value: k });
+    }
+  } else if (category === 'shiny') {
+    for (const k of BAKED_KEYS) {
+      const shinyQty = inventory[`shiny_${k}`] || 0;
+      if (shinyQty > 0) options.push({ name: `✨ ${BAKED_GOODS[k].name} Thượng Hạng (×${shinyQty})`, value: `shiny_${k}` });
+    }
+  }
   return options;
 }
 
@@ -226,37 +250,41 @@ module.exports = {
     const parts = interaction.customId.split(':');
     const action = parts[1];
 
-    if (action === 'start') {
-      const menu = userSelectMenu('gift:select_user', '👤 Chọn người bạn muốn tặng quà...');
+    if (action === 'open') {
+      const targetId = parts[2];
       return interaction.update({
-        embeds: [bakeryEmbed('🎁 Tặng Quà', 'Vui lòng chọn người bạn muốn tặng quà từ danh sách bên dưới:', COLORS.primary)],
-        components: [row(menu), row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))]
+        embeds: [bakeryEmbed('🎁 Chọn Danh Mục Quà Tặng', '> *Bạn muốn tặng loại quà gì cho người bạn này?*\n\n**Vui lòng chọn danh mục:**', COLORS.primary)],
+        components: [
+          row(
+            btn(`gift:cat:ing:${targetId}`, '🌾 Nguyên Liệu', 'Primary'),
+            btn(`gift:cat:baked:${targetId}`, '🧁 Bánh Thường', 'Primary'),
+            btn(`gift:cat:shiny:${targetId}`, '✨ Thượng Hạng', 'Primary')
+          ),
+          row(btn('gift:start', '◀ Chọn Người Khác', 'Secondary'))
+        ]
       });
     }
 
-    if (action === 'select_user') {
-      const targetId = interaction.values[0];
-      // Đổi thành customId dạng gift:open:ID để nối tiếp flow cũ
-      interaction.customId = `gift:open:${targetId}`;
-      parts = interaction.customId.split(':');
-      action = parts[1];
-    }
-
-    if (action === 'open') {
-      const targetId = parts[2];
+    if (action === 'cat') {
+      const cat = parts[2];
+      const targetId = parts[3];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       
-      const options = getInventoryOptions(user.inventory).slice(0, 25);
+      const options = getInventoryCategory(user.inventory, cat).slice(0, 25);
       if (!options.length) {
-        return interaction.reply({ embeds: [errorEmbed('Kho của bạn trống rỗng, không có gì để tặng cả!')], ephemeral: true });
+        return interaction.update({
+          embeds: [errorEmbed('Bạn không có vật phẩm nào trong danh mục này để tặng!')],
+          components: [row(btn(`gift:open:${targetId}`, '◀ Chọn Danh Mục Khác', 'Secondary'))]
+        });
       }
 
       const smOptions = options.map(o => ({ label: o.name.substring(0, 100), value: o.value }));
-      const menu = selectMenu(`gift:select_item:${targetId}`, '🎁 Chọn vật phẩm muốn tặng...', smOptions);
+      const menu = selectMenu(`gift:select_item:${targetId}`, '🎁 Chọn món quà muốn tặng...', smOptions);
       
+      const catName = cat === 'ing' ? '🌾 Nguyên Liệu' : cat === 'baked' ? '🧁 Bánh Thường' : '✨ Bánh Thượng Hạng';
       return interaction.update({
-        embeds: [bakeryEmbed('🎁 Tặng Quà', 'Vui lòng chọn vật phẩm bạn muốn tặng từ kho:', COLORS.primary)],
-        components: [row(menu), row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))]
+        embeds: [bakeryEmbed(`🎁 Tặng Quà — ${catName}`, 'Vui lòng chọn món quà bạn muốn trao đi:', COLORS.primary)],
+        components: [row(menu), row(btn(`gift:open:${targetId}`, '◀ Chọn Danh Mục Khác', 'Secondary'))]
       });
     }
 

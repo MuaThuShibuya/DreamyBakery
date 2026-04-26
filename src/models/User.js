@@ -53,9 +53,7 @@ const petSchema = new mongoose.Schema({
   // Phẩm chất Sao (Tăng khi ăn bánh Thượng Hạng)
   stars:  { type: Number, default: 0 },
   // Chỉ số hiện tại (tăng theo cấp và khi cho ăn bánh)
-  stats:  { hp: Number, atk: Number, def: Number, spd: Number },
-  // Khóa thú cưng (chống bán/xóa/dung hợp nhầm)
-  isLocked: { type: Boolean, default: false }
+  stats:  { hp: Number, atk: Number, def: Number, spd: Number }
 }); // Có _id tự động để phân biệt các con pet trùng loại
 
 // ─── Inventory schema ─────────────────────────────────────────────────────────
