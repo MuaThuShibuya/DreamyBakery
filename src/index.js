@@ -113,9 +113,10 @@ client.on('messageCreate', async (message) => {
     console.error(`\n[❌ MessageError] Lỗi khi chạy lệnh .${commandName}`);
     console.error(`- User: ${message.author.tag} (${message.author.id})`);
     console.error(`- Channel: ${message.channel.name || 'DM'} (${message.channel.id})`);
-    console.error(`- Content: ${message.content}`);
+    console.error(`- Command: ${commandName}`);
+    console.error(`- Args: ${JSON.stringify(args)}`);
     console.error(`- Stack Trace:\n`, err.stack || err);
-    message.reply('❌ Có lỗi nghiêm trọng xảy ra khi thực hiện lệnh! Hệ thống đã ghi nhận lỗi này để Admin xử lý.').catch(() => null);
+    message.reply(`❌ Lỗi hệ thống khi chạy lệnh \`.${commandName}\`: \`${err.message}\`\nHệ thống đã ghi nhận lỗi này để Admin xử lý.`).catch(() => null);
   }
 });
 
@@ -232,11 +233,23 @@ client.on('interactionCreate', async (interaction) => {
     console.error(`- User: ${interaction.user.tag} (${interaction.user.id})`);
     console.error(`- Type: ${interaction.type}`);
     console.error(`- ID: ${interaction.customId || interaction.commandName}`);
+    
+    // Bóc tách chi tiết State để debug dễ dàng hơn
+    if (interaction.isChatInputCommand()) {
+      const opts = interaction.options.data.map(opt => `${opt.name}: ${opt.value}`).join(', ');
+      console.error(`- Options: ${opts || 'None'}`);
+    } else if (interaction.isStringSelectMenu() || interaction.isUserSelectMenu()) {
+      console.error(`- Selected Values: ${interaction.values.join(', ')}`);
+    } else if (interaction.isModalSubmit()) {
+      const fields = interaction.fields.fields.map(f => `${f.customId}: ${f.value}`).join(', ');
+      console.error(`- Modal Fields: ${fields}`);
+    }
+
     console.error(`- Stack Trace:\n`, err.stack || err);
 
     // Gửi thông báo lỗi thân thiện cho user
     const errPayload = {
-      content:   '❌ Có lỗi xảy ra! Thử lại sau nhé~ 🌸',
+      content:   `❌ Đã xảy ra lỗi nội bộ: \`${err.message}\`\nAdmin đã được thông báo về lỗi này! 🌸`,
       ephemeral: true,
     };
     try {

@@ -203,16 +203,16 @@ module.exports = {
         return interaction.reply({ embeds: [errorEmbed('🔒 Bạn không có giấy phép kinh doanh!\nChỉ Nhà Phát Triển hoặc người được cấp quyền mới có thể đăng bán hàng trên Shop Thương Mại.')], ephemeral: true });
       }
 
-      return interaction.reply({
+      return interaction.update({
         embeds: [bakeryEmbed('📦 Đăng Bán — Chọn Danh Mục', '> *Phân loại vật phẩm giúp bạn dễ dàng chọn đúng món đồ muốn đăng lên Cửa Hàng Trưng Bày.*\n\n**Vui lòng chọn danh mục:**', COLORS.primary)],
         components: [
           row(
             btn('shop:list_cat:ing', '🌾 Nguyên Liệu', 'Primary'),
             btn('shop:list_cat:baked', '🧁 Bánh Thường', 'Primary'),
             btn('shop:list_cat:shiny', '✨ Thượng Hạng', 'Primary')
-          )
+          ),
+          row(btn('shop:open', '◀ Quay Lại Shop', 'Secondary'))
         ],
-        ephemeral: true
       });
     }
 
@@ -224,7 +224,8 @@ module.exports = {
             btn('shop:list_cat:ing', '🌾 Nguyên Liệu', 'Primary'),
             btn('shop:list_cat:baked', '🧁 Bánh Thường', 'Primary'),
             btn('shop:list_cat:shiny', '✨ Thượng Hạng', 'Primary')
-          )
+          ),
+          row(btn('shop:open', '◀ Quay Lại Shop', 'Secondary'))
         ]
       });
     }
@@ -299,7 +300,7 @@ module.exports = {
       const label   = info ? `${info.emoji} ${info.name}` : listing.item;
       const total   = listing.price * listing.quantity;
 
-      return interaction.reply({
+      return interaction.update({
         embeds: [bakeryEmbed(
           '🛍️ Xác Nhận Mua Hàng',
           [
@@ -314,7 +315,6 @@ module.exports = {
           btn(`shop:confirm_buy:${listingId}`, '✅ Xác Nhận Mua', 'Success'),
           btn('shop:cancel_buy',               '❌ Hủy',          'Danger'),
         )],
-        ephemeral: true,
       });
     }
 
@@ -369,7 +369,8 @@ module.exports = {
 
     // ── Hủy xem listing ──────────────────────────────────────────────────────
     if (action === 'cancel_buy') {
-      return interaction.update({ embeds: [bakeryEmbed('❌ Đã Hủy', 'Bạn đã hủy giao dịch.', COLORS.error)], components: [row(btn('shop:open', '◀ Quay Lại Shop', 'Primary'))] });
+      interaction.customId = 'shop:open';
+      return this.handleComponent(interaction);
     }
 
     // ── Gian hàng của tôi ───────────────────────────────────────────────────
@@ -473,7 +474,7 @@ module.exports = {
         '',
         `Listing sẽ tự hết hạn sau **7 ngày**. Dùng \`/shop\` để xem.`,
       ].join('\n'))],
-      components: [row(btn('menu:section:shop', '◀ Quay Lại Shop', 'Secondary'))]
+      components: [row(btn('shop:open', '◀ Quay Lại Shop', 'Secondary'))]
     });
   },
 

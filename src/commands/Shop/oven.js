@@ -126,14 +126,13 @@ module.exports = {
       if (!isShopOrAbove(interaction.user.id, user)) return interaction.reply({ embeds: [errorEmbed('🔒 Lò nướng chỉ dành cho Chủ Shop!')], ephemeral: true });
 
       const { embed, hasDone } = buildOvenEmbed(user);
-      return interaction.reply({
+      return interaction.update({
         embeds:     [embed],
         components: [
           row(btn('oven:collect', '🎁 Lấy Bánh!', 'Success', !hasDone)),
           row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary')),
           row(btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))
         ],
-        ephemeral:  true,
       });
     }
 

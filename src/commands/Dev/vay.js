@@ -177,7 +177,7 @@ module.exports = {
 
       const btns = row(
         btn('vay:pay_modal', '💸 Thanh Toán Nợ', 'Success', debt <= 0),
-        btn('menu:section:social', '◀ Quay Lại', 'Secondary')
+        btn('menu:section:trade', '◀ Quay Lại', 'Secondary')
       );
 
       return interaction.update({ embeds: [embed], components: [btns] });

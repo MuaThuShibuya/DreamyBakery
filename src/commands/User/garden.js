@@ -128,15 +128,30 @@ module.exports = {
     }
 
     if (action !== 'harvest') return;
-    await interaction.deferUpdate();
+    
+    try {
+      await interaction.deferUpdate();
+    } catch (err) {
+      if (err.code === 40060 || err.code === 'InteractionAlreadyReplied') return;
+      throw err;
+    }
 
-    const user  = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
     const now   = Date.now();
-    const cdEnd = user?.cooldowns?.garden ? new Date(user.cooldowns.garden).getTime() : 0;
 
-    // Kiểm tra lại cooldown để tránh double-click / race condition
-    if (cdEnd > now) {
-      const { embed } = await buildGardenEmbed(user);
+    // Sử dụng nguyên lý khóa Atomic trong MongoDB để chống 100% Race Condition / Double Click
+    const user = await User.findOneAndUpdate(
+      { 
+        userId: interaction.user.id, 
+        guildId: interaction.guildId,
+        $or: [ { 'cooldowns.garden': null }, { 'cooldowns.garden': { $lte: new Date(now) } } ]
+      },
+      { $set: { 'cooldowns.garden': new Date(now + COOLDOWNS.garden) } },
+      { new: true }
+    );
+
+    if (!user) {
+      const u = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const { embed } = await buildGardenEmbed(u);
       return interaction.editReply({
         embeds:     [embed],
         components: [row(btn('garden:harvest', '🌿 Thu Hoạch', 'Success', true))],
@@ -155,7 +170,6 @@ module.exports = {
       lines.push(`${INGREDIENTS[k].emoji} **${INGREDIENTS[k].name}**: +${amt}`);
     }
 
-    user.cooldowns.garden = new Date(now + COOLDOWNS.garden);
     user.markModified('inventory');
     await user.save();
 

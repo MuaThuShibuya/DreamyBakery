@@ -127,7 +127,7 @@ function buildMenu(user, member, role, category = 'home') {
   }
   else if (category === 'harvest') {
     embed = bakeryEmbed('🌿 Khu Sinh Thái', `Tiến hành trồng trọt và chăn nuôi để thu thập nguyên liệu.\n\n💡 *Mẹo: Nâng cấp Vườn và Trại để tăng sản lượng nhận được!*`, COLORS.success);
-    btnRows.push(row(btn('garden:open', '🌿 Ra Vườn (30p)', 'Primary'), btn('farm:open', '🏡 Ra Trại (1h)', 'Primary')));
+    btnRows.push(row(btn('garden:open', '🌿 Ra Vườn (5p)', 'Primary'), btn('farm:open', '🏡 Ra Trại (10p)', 'Primary')));
   }
   else if (category === 'trade') {
     if (role === ROLE.USER) {
@@ -315,7 +315,10 @@ module.exports = {
       if (category === 'locked') return interaction.deferUpdate().catch(() => {});
       const user = await User.findOneAndUpdate({ userId: interaction.user.id, guildId: interaction.guildId }, { $setOnInsert: { username: interaction.user.username } }, { upsert: true, new: true });
       const role = getRole(interaction.user.id, user);
-      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, category)).catch(() => {});
+      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, category)).catch(e => {
+        if (e.code === 40060 || e.code === 'InteractionAlreadyReplied') return;
+        throw e;
+      });
     }
 
     // ── Quay về Home ──────────────────────────────────────────────────────────
@@ -340,7 +343,10 @@ module.exports = {
         return interaction.client.commands.get('pet').handleComponent(interaction);
       }
 
-      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, cat));
+      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, cat)).catch(e => {
+        if (e.code === 40060 || e.code === 'InteractionAlreadyReplied') return;
+        throw e;
+      });
     }
 
     // ── Xã Hội: Chọn người chơi mục tiêu ─────────────────────────────────────

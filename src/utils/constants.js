@@ -146,6 +146,7 @@ const PET_RANKS = {
   S:   { multiplier: 2.5, color: '🔵' },
   SS:  { multiplier: 4.0, color: '🟣' },
   SSS: { multiplier: 7.0, color: '🟡' },
+  'SSS+': { multiplier: 12.0, color: '🔴' },
 };
 
 /** Danh sách 23 Thú Cưng (Hạng B đến SSS) */
@@ -188,6 +189,11 @@ const PETS = {
   angel:       { name: 'Thiên Thần',   emoji: '👼', rank: 'SSS',baseStats:{ hp:600, atk:120, def:100, spd:100 } },
   bahamut:     { name: 'Bahamut',      emoji: '🐲', rank: 'SSS',baseStats:{ hp:750, atk:200, def: 90, spd: 60 } },
   valkyrie:    { name: 'Valkyrie',     emoji: '🛡️', rank: 'SSS',baseStats:{ hp:550, atk:160, def:110, spd:110 } },
+  // Rank SSS+ (Cực hiếm - 0.1%)
+  cosmic_dragon: { name: 'Thần Long Vũ Trụ', emoji: '🌌', rank: 'SSS+', baseStats: { hp:1200, atk: 300, def: 150, spd: 150 } },
+  sun_god:       { name: 'Thần Mặt Trời',    emoji: '☀️', rank: 'SSS+', baseStats: { hp:1000, atk: 350, def: 120, spd: 160 } },
+  moon_goddess:  { name: 'Nữ Thần Mặt Trăng',emoji: '🌙', rank: 'SSS+', baseStats: { hp:1100, atk: 320, def: 130, spd: 140 } },
+  void_walker:   { name: 'Chúa Tể Hư Không', emoji: '🕳️', rank: 'SSS+', baseStats: { hp:1500, atk: 280, def: 200, spd: 100 } },
 };
 
 // ─── Nâng cấp ────────────────────────────────────────────────────────────────

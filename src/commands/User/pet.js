@@ -14,11 +14,12 @@ const { getItemInfo } = require('../../utils/gameUtils');
 /** Cấu hình Gacha */
 const GACHA_COST = 2000;
 const GACHA_RATES = [
-  { rank: 'SSS', chance: 0.01 }, // 1%
-  { rank: 'SS',  chance: 0.04 }, // 4%
-  { rank: 'S',   chance: 0.10 }, // 10%
-  { rank: 'A',   chance: 0.25 }, // 25%
-  { rank: 'B',   chance: 0.60 }, // 60%
+  { rank: 'SSS+', chance: 0.001 }, // 0.1%
+  { rank: 'SSS',  chance: 0.010 }, // 1%
+  { rank: 'SS',   chance: 0.040 }, // 4%
+  { rank: 'S',    chance: 0.100 }, // 10%
+  { rank: 'A',    chance: 0.250 }, // 25%
+  { rank: 'B',    chance: 0.599 }, // 59.9%
 ];
 
 /** Roll Gacha */
@@ -85,7 +86,10 @@ module.exports = {
         btn('pet:list:0:ALL', `📖 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0),
         btn('pet:feed_menu', '🧁 Cường Hóa (Cho ăn)', 'Success', !activePet),
       );
-      return interaction.update({ embeds: [bakeryEmbed('🐾 Trại Thú Cưng', desc, COLORS.success)], components: [btns] });
+      return interaction.update({
+        embeds: [bakeryEmbed('🐾 Trại Thú Cưng', desc, COLORS.success)],
+        components: [btns, row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))]
+      });
     }
 
     // ── 2. Gacha (Ấp Trứng x1 và x10) ─────────────────────────────────────
@@ -159,6 +163,7 @@ module.exports = {
       // Dropdown Lọc phẩm chất
       const filterOptions = [
         { label: 'Tất cả phẩm chất', emoji: '🌈', value: 'ALL', default: currentFilter === 'ALL' },
+        { label: 'Lọc Hạng SSS+ (Vượt Trội)', emoji: '🔴', value: 'SSS+', default: currentFilter === 'SSS+' },
         { label: 'Lọc Hạng SSS (Tối thượng)', emoji: '🟡', value: 'SSS', default: currentFilter === 'SSS' },
         { label: 'Lọc Hạng SS (Thần thú)', emoji: '🟣', value: 'SS', default: currentFilter === 'SS' },
         { label: 'Lọc Hạng S (Linh thú)', emoji: '🔵', value: 'S', default: currentFilter === 'S' },
@@ -230,7 +235,7 @@ module.exports = {
       const isLocked = pet.isLocked || false;
 
       // Định giá Phóng sinh (Base + Level * 500 xu)
-      const baseValue = info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
+      const baseValue = info.rank === 'SSS+' ? 100000 : info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
       const releaseValue = baseValue + (pet.level * 500);
 
       const desc = [
@@ -283,12 +288,12 @@ module.exports = {
     if (action === 'mass_release_menu') {
        const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
        const options = [];
-       ['B', 'A', 'S', 'SS', 'SSS'].forEach(rank => {
+       ['B', 'A', 'S', 'SS', 'SSS', 'SSS+'].forEach(rank => {
           const releaseable = user.pets.filter(p => !p.isLocked && PETS[p.petKey].rank === rank && p._id.toString() !== user.activePetId?.toString());
           const count = releaseable.length;
           if (count > 0) {
              // Tính trước tổng số xu nhận được để làm UX chuyên nghiệp hơn
-             const baseValue = rank === 'SSS' ? 25000 : rank === 'SS' ? 10000 : rank === 'S' ? 5000 : rank === 'A' ? 2500 : 1000;
+             const baseValue = rank === 'SSS+' ? 100000 : rank === 'SSS' ? 25000 : rank === 'SS' ? 10000 : rank === 'S' ? 5000 : rank === 'A' ? 2500 : 1000;
              const totalCoins = releaseable.reduce((sum, p) => sum + baseValue + (p.level * 500), 0);
              options.push({ 
                 label: `Phóng sinh toàn bộ Hạng ${rank}`, 
@@ -328,7 +333,7 @@ module.exports = {
           const info = PETS[p.petKey];
 
           if (!p.isLocked && !isCompanion && info.rank === rankToRelease) {
-             const baseValue = info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
+             const baseValue = info.rank === 'SSS+' ? 100000 : info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
              totalCoinsGained += baseValue + (p.level * 500);
              countReleased++;
           } else {
@@ -358,7 +363,7 @@ module.exports = {
       }
 
       const info = PETS[pet.petKey];
-      const baseValue = info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
+      const baseValue = info.rank === 'SSS+' ? 100000 : info.rank === 'SSS' ? 25000 : info.rank === 'SS' ? 10000 : info.rank === 'S' ? 5000 : info.rank === 'A' ? 2500 : 1000;
       const releaseValue = baseValue + (pet.level * 500);
 
       user.coins += releaseValue;

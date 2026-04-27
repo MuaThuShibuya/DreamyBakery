@@ -159,11 +159,9 @@ module.exports = {
 
     // ── Mở từ menu ──────────────────────────────────────────────────────────
     if (action === 'open') {
-      return interaction.reply({
+      return interaction.update({
         embeds:     [buildMarketEmbed()],
-        components: [row(btn('market:show_buy', '🛒 Mua Nguyên Liệu', 'Primary'), btn('market:show_sell', '💰 Bán Hàng', 'Success'))],
         components: [row(btn('market:show_buy', '🛒 Mua Nguyên Liệu', 'Primary'), btn('market:show_sell', '💰 Bán Hàng', 'Success')), row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary'))],
-        ephemeral:  true
       });
     }
 
@@ -323,7 +321,7 @@ module.exports = {
           `💸 Đã trả: **${total.toLocaleString('vi-VN')}** xu`,
           `💰 Xu còn lại: **${user.coins.toLocaleString('vi-VN')}** xu`,
         ].join('\n'))],
-        components: [],
+        components: [row(btn('market:show_buy', '🛒 Tiếp Tục Mua', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))],
       });
       return;
     }
@@ -367,7 +365,7 @@ module.exports = {
           `💰 Nhận được: **${earned.toLocaleString('vi-VN')}** xu`,
           `💳 Tổng xu: **${user.coins.toLocaleString('vi-VN')}** xu`,
         ].join('\n'))],
-        components: [],
+        components: [row(btn('market:show_sell', '💰 Tiếp Tục Bán', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))],
       });
     }
   },
