@@ -150,7 +150,7 @@ module.exports = {
     // Để hệ thống đồng bộ, khuyến khích sử dụng Message prefix như bạn đã yêu cầu ở trên
     return interaction.reply({
       content: '⚠️ Vui lòng sử dụng lệnh tiền tố để thực hiện lệnh vay. (VD: `.vay thongtin`, `.vay tra 1000` hoặc Admin gõ `.vay @user 1000 30`)',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   },
 
@@ -200,17 +200,17 @@ module.exports = {
   async handleModal(interaction) {
     if (interaction.customId === 'vay:submit_pay') {
       const amount = parseInt(interaction.fields.getTextInputValue('amount'));
-      if (isNaN(amount) || amount <= 0) return interaction.reply({ embeds: [errorEmbed('Số tiền không hợp lệ!')], ephemeral: true });
+      if (isNaN(amount) || amount <= 0) return interaction.reply({ embeds: [errorEmbed('Số tiền không hợp lệ!')], flags: MessageFlags.Ephemeral });
 
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      if (!user || user.debt <= 0) return interaction.reply({ embeds: [errorEmbed('Bạn không có nợ!')], ephemeral: true });
-      if (user.coins < amount) return interaction.reply({ embeds: [errorEmbed(`Bạn không đủ tiền! Ví chỉ có **${user.coins.toLocaleString('vi-VN')}** xu.`)], ephemeral: true });
+      if (!user || user.debt <= 0) return interaction.reply({ embeds: [errorEmbed('Bạn không có nợ!')], flags: MessageFlags.Ephemeral });
+      if (user.coins < amount) return interaction.reply({ embeds: [errorEmbed(`Bạn không đủ tiền! Ví chỉ có **${user.coins.toLocaleString('vi-VN')}** xu.`)], flags: MessageFlags.Ephemeral });
 
       const actualPay = Math.min(amount, user.debt);
       await bakery_add_money(interaction.user.id, interaction.guildId, -actualPay);
       await User.updateOne({ userId: interaction.user.id, guildId: interaction.guildId }, { $inc: { debt: -actualPay } });
 
-      return interaction.reply({ embeds: [successEmbed('💸 Thanh Toán Thành Công', `Đã trừ **${actualPay.toLocaleString('vi-VN')} xu** vào dư nợ.\nDư nợ còn lại: **${user.debt.toLocaleString('vi-VN')} xu**`)], ephemeral: true });
+      return interaction.reply({ embeds: [successEmbed('💸 Thanh Toán Thành Công', `Đã trừ **${actualPay.toLocaleString('vi-VN')} xu** vào dư nợ.\nDư nợ còn lại: **${user.debt.toLocaleString('vi-VN')} xu**`)], flags: MessageFlags.Ephemeral });
     }
   }
 };

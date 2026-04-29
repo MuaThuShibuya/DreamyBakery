@@ -4,7 +4,7 @@
  * @description Ăn bánh từ kho để hồi phục HP cho bản thân.
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { errorEmbed, successEmbed, bakeryEmbed, selectMenu, row, btn } = require('../../utils/embeds');
 const { BAKED_GOODS, BAKED_KEYS, COLORS } = require('../../utils/constants');
@@ -19,7 +19,7 @@ module.exports = {
     return message.reply('⚠️ Vui lòng sử dụng tính năng này thông qua Bảng Điều Khiển: `.menu` -> `Hồ Sơ & Kho` -> `Ăn Bánh`.');
   },
   async execute(interaction) {
-    return interaction.reply({ content: '⚠️ Vui lòng sử dụng qua Bảng điều khiển trung tâm (`.menu`).', ephemeral: true });
+    return interaction.reply({ content: '⚠️ Vui lòng sử dụng qua Bảng điều khiển trung tâm (`.menu`).', flags: MessageFlags.Ephemeral });
   },
 
   async handleComponent(interaction) {
@@ -29,7 +29,7 @@ module.exports = {
     if (action === 'open') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       
-      if (user.hp >= 100) return interaction.reply({ embeds: [errorEmbed('Bạn đang đầy máu (100 HP), không cần ăn thêm đâu! 🐷')], ephemeral: true });
+      if (user.hp >= 100) return interaction.reply({ embeds: [errorEmbed('Bạn đang đầy máu (100 HP), không cần ăn thêm đâu! 🐷')], flags: MessageFlags.Ephemeral });
 
       const options = BAKED_KEYS.filter(k => (user.inventory[k] || 0) > 0).map(k => {
         const info = BAKED_GOODS[k];
@@ -37,12 +37,12 @@ module.exports = {
         return { label: `${info.emoji} ${info.name}`, description: `Hồi ${heal} HP (Có: ${user.inventory[k]})`, value: k };
       });
 
-      if (!options.length) return interaction.reply({ embeds: [errorEmbed('Kho của bạn không có bánh nào để ăn! Hãy nướng thêm nhé. 😱')], ephemeral: true });
+      if (!options.length) return interaction.reply({ embeds: [errorEmbed('Kho của bạn không có bánh nào để ăn! Hãy nướng thêm nhé. 😱')], flags: MessageFlags.Ephemeral });
 
       const menu = selectMenu(`eat:consume`, '🍰 Chọn bánh để ăn...', options.slice(0, 25));
       return interaction.update({
         embeds: [bakeryEmbed('🍰 Ăn Bánh Hồi Sức', `❤️ HP hiện tại của bạn: **${Math.floor(user.hp)}/100**\nChọn bánh để nạp lại năng lượng chống bị úp sọt!`, COLORS.success)],
-        components: [row(menu), row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'))]
+        components: [row(menu), row(btn('menu:section:profile', '◀ Quay Lại', 'Secondary'))]
       });
     }
 
@@ -74,7 +74,7 @@ module.exports = {
           ].join('\n'),
           COLORS.success
         )],
-        components: [row(btn('eat:open', '🍰 Tiếp Tục Ăn', 'Primary'), btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'))]
+        components: [row(btn('eat:open', '🍰 Tiếp Tục Ăn', 'Primary'), btn('menu:section:profile', '◀ Quay Lại', 'Secondary'))]
       });
     }
   }

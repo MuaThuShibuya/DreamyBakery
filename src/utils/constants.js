@@ -137,6 +137,66 @@ const NPC_PHRASES = [
   (npc, itemStr, qty) => `${npc.emoji} **${npc.name}** vui vẻ đến: *"Hôm nay trời đẹp quá! Cho mình **${qty}** **${itemStr}** nhé 🌸"*`,
 ];
 
+// ─── Hệ Thống Đặc Tính (Traits) ──────────────────────────────────────────────
+
+/** Đặc tính thú cưng */
+const TRAITS = {
+  darkness: { name: 'Bóng Đêm', emoji: '🌑', effects: { spd: 0.50, hp: 0.30, atk: 0.30, def: 0.30 } },
+  ironclad: { name: 'Thiết Giáp', emoji: '🛡️', effects: { def: 0.50, hp: 0.30, atk: 0.30, spd: 0.30 } },
+  balanced: { name: 'Cân Bằng', emoji: '⚖️', effects: { hp: 0.35, atk: 0.35, def: 0.35, spd: 0.35 } },
+  fury:     { name: 'Cuồng Nộ', emoji: '💢', effects: { atk: 0.50, hp: 0.30, def: 0.30, spd: 0.30 } },
+  vitality: { name: 'Sinh Lực', emoji: '❤️', effects: { hp: 0.50, atk: 0.30, def: 0.30, spd: 0.30 } },
+};
+
+const TRAIT_LEVEL_RATES = [
+  { level: 5, chance: 0.02 }, // 2%
+  { level: 4, chance: 0.08 }, // 8%
+  { level: 3, chance: 0.15 }, // 15%
+  { level: 2, chance: 0.25 }, // 25%
+  { level: 1, chance: 0.50 }, // 50%
+];
+
+// ─── Hệ Thống Kỹ Năng (Skills) ──────────────────────────────────────────────────
+
+const SKILL_BOOKS = {
+  'skill_heavy':    { name: 'Cú Đánh Nặng', emoji: '💥', price: 5000, desc: 'Gây 150% sát thương lên kẻ thù.', damageMult: 1.5, heal: 0 },
+  'skill_vampire':  { name: 'Hút Máu',      emoji: '🦇', price: 15000, desc: 'Gây 120% sát thương, hồi máu bằng 50% sát thương gây ra.', damageMult: 1.2, heal: 0.5 },
+  'skill_pierce':   { name: 'Xuyên Giáp',   emoji: '🗡️', price: 20000, desc: 'Bỏ qua một phần giáp, sát thương rất mạnh.', damageMult: 1.8, heal: 0, ignoreDef: true },
+  'skill_ultimate': { name: 'Tối Thượng',   emoji: '✨', price: 50000, desc: 'Gây 250% sát thương, tỷ lệ kích hoạt thấp.', damageMult: 2.5, heal: 0 },
+};
+
+// ─── Hệ Thống Trang Bị (Gears & Sets) ──────────────────────────────────────────
+
+const GEAR_SETS = {
+  gladiator: { name: 'Chiến Binh', emoji: '⚔️', 2: { atk: 0.15 }, 4: { atk: 0.30 } },
+  guardian:  { name: 'Hộ Vệ',      emoji: '🛡️', 2: { def: 0.15 }, 4: { def: 0.30 } },
+  swift:     { name: 'Phong Thần', emoji: '💨', 2: { spd: 0.15 }, 4: { spd: 0.30 } },
+  vitality:  { name: 'Sinh Lực',   emoji: '❤️', 2: { hp: 0.15 }, 4: { hp: 0.30 } }
+};
+
+const GEARS = {
+  // Gladiator (ATK)
+  gear_glad_weapon: { name: 'Kiếm Chiến Binh', type: 'weapon', set: 'gladiator', stats: { atk: 50 }, price: 10000, emoji: '🗡️' },
+  gear_glad_head:   { name: 'Mũ Chiến Binh',   type: 'head',   set: 'gladiator', stats: { hp: 200 }, price: 10000, emoji: '🪖' },
+  gear_glad_armor:  { name: 'Giáp Chiến Binh', type: 'armor',  set: 'gladiator', stats: { def: 30 }, price: 10000, emoji: '🥋' },
+  gear_glad_acc:    { name: 'Nhẫn Chiến Binh', type: 'accessory', set: 'gladiator', stats: { spd: 10 }, price: 10000, emoji: '💍' },
+  // Guardian (DEF)
+  gear_guard_weapon:{ name: 'Chùy Hộ Vệ',      type: 'weapon', set: 'guardian',  stats: { atk: 30 }, price: 10000, emoji: '🔨' },
+  gear_guard_head:  { name: 'Mũ Hộ Vệ',        type: 'head',   set: 'guardian',  stats: { hp: 250 }, price: 10000, emoji: '⛑️' },
+  gear_guard_armor: { name: 'Giáp Hộ Vệ',      type: 'armor',  set: 'guardian',  stats: { def: 60 }, price: 10000, emoji: '🛡️' },
+  gear_guard_acc:   { name: 'Dây Chuyền Hộ Vệ',type: 'accessory', set: 'guardian',stats: { def: 20 }, price: 10000, emoji: '📿' },
+  // Swift (SPD)
+  gear_swift_weapon:{ name: 'Dao Găm Phong Thần',type: 'weapon', set: 'swift',    stats: { atk: 40 }, price: 10000, emoji: '🗡️' },
+  gear_swift_head:  { name: 'Khăn Phong Thần', type: 'head',   set: 'swift',    stats: { hp: 150 }, price: 10000, emoji: '🧣' },
+  gear_swift_armor: { name: 'Áo Choàng Phong', type: 'armor',  set: 'swift',    stats: { def: 20 }, price: 10000, emoji: '🧥' },
+  gear_swift_acc:   { name: 'Giày Phong Thần', type: 'accessory', set: 'swift', stats: { spd: 30 }, price: 10000, emoji: '🥾' },
+  // Vitality (HP)
+  gear_vital_weapon:{ name: 'Trượng Sinh Lực', type: 'weapon', set: 'vitality', stats: { atk: 35 }, price: 10000, emoji: '🪄' },
+  gear_vital_head:  { name: 'Vương Miện Sinh Lực',type: 'head',set: 'vitality', stats: { hp: 400 }, price: 10000, emoji: '👑' },
+  gear_vital_armor: { name: 'Giáp Sinh Lực',   type: 'armor',  set: 'vitality', stats: { def: 40 }, price: 10000, emoji: '👘' },
+  gear_vital_acc:   { name: 'Ngọc Sinh Lực',   type: 'accessory', set: 'vitality',stats: { hp: 200 }, price: 10000, emoji: '🔮' },
+};
+
 // ─── Hệ thống Thú Cưng & PvP ──────────────────────────────────────────────────
 
 /** Trọng số chỉ số gốc theo Hạng (Rank) */
@@ -302,7 +362,7 @@ const ALL_ITEM_KEYS = [...INGR_KEYS, ...BAKED_KEYS, ...SHINY_KEYS];
 
 module.exports = {
   INGREDIENTS, BAKED_GOODS, MARKET_PRICES, NPCS, NPC_PHRASES,
-  PETS, PET_RANKS,
+  PETS, PET_RANKS, TRAITS, TRAIT_LEVEL_RATES, SKILL_BOOKS, GEAR_SETS, GEARS,
   UPGRADES, GARDEN_HARVEST, FARM_HARVEST, COOLDOWNS,
   LEVEL_TITLES, COLORS, BAKED_KEYS, SHINY_KEYS, INGR_KEYS, ALL_ITEM_KEYS,
 };

@@ -12,7 +12,7 @@
  * Mục tiêu chỉ có thể bị trộm nguyên liệu vườn (wheat, strawberry, rose).
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { bakeryEmbed, errorEmbed, btn, row } = require('../../utils/embeds');
 const { INGREDIENTS, COOLDOWNS, COLORS } = require('../../utils/constants');
@@ -48,7 +48,7 @@ function pickStealable(inventory) {
 
 /** Logic xử lý trộm dùng chung cho cả lệnh và UI */
 async function processSneak(interaction, target, isUpdate = false) {
-  const sendReply = async (payload) => isUpdate ? interaction.update(payload) : interaction.reply({ ...payload, ephemeral: true });
+  const sendReply = async (payload) => isUpdate ? interaction.update(payload) : interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
 
   if (target.id === interaction.user.id) return sendReply({ embeds: [errorEmbed('Bạn không thể trộm chính mình! 😂')] });
   if (target.bot) return sendReply({ embeds: [errorEmbed('Không thể trộm bot!')] });

@@ -171,7 +171,7 @@ module.exports = {
       );
       return interaction.update({
         embeds:     [buildInvEmbed(user, 'ingredients')],
-        components: [buildNav('ingredients'), row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'))],
+        components: [buildNav('ingredients'), row(btn('menu:section:profile', '◀ Quay Lại', 'Secondary'))],
       });
     }
 
@@ -180,9 +180,9 @@ module.exports = {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       if (!user) return interaction.update({ embeds: [errorEmbed('Bạn chưa có tài khoản!')], components: [] });
 
-      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery' || c.customId === 'menu:home'));
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:profile' || c.customId === 'menu:home'));
       const comps = [buildNav(page)];
-      if (hasBack) comps.push(row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary')));
+      if (hasBack) comps.push(row(btn('menu:section:profile', '◀ Quay Lại', 'Secondary')));
 
       return interaction.update({
         embeds:     [buildInvEmbed(user, page)],

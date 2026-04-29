@@ -658,7 +658,7 @@ module.exports = {
       const reason = interaction.options.getString('ly_do') || 'Không có lý do';
 
       if (target.id === interaction.user.id) {
-        return interaction.reply({ embeds: [errorEmbed('Không thể tự ban mình!')], ephemeral: true });
+        return interaction.reply({ embeds: [errorEmbed('Không thể tự ban mình!')], flags: MessageFlags.Ephemeral });
       }
 
       await User.findOneAndUpdate(

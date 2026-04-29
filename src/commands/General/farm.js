@@ -102,7 +102,12 @@ module.exports = {
     }
 
     if (action !== 'harvest') return;
-    await interaction.deferUpdate();
+    
+    try {
+      await interaction.deferUpdate();
+    } catch (e) {
+      if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
+    }
 
     const user  = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
     const now   = Date.now();

@@ -15,7 +15,7 @@
  *  Mua → nút Buy:{id} → Xác nhận → Thực thi giao dịch
  */
 
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const User        = require('../../models/User');
 const ShopListing = require('../../models/ShopListing');
 const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../../utils/embeds');
@@ -200,7 +200,7 @@ module.exports = {
       // Chỉ cho phép DEV hoặc người có cờ isShopOwner đăng bán
       const isDev = interaction.user.id === process.env.DEV_ID;
       if (!isDev && !user.isShopOwner) {
-        return interaction.reply({ embeds: [errorEmbed('🔒 Bạn không có giấy phép kinh doanh!\nChỉ Nhà Phát Triển hoặc người được cấp quyền mới có thể đăng bán hàng trên Shop Thương Mại.')], ephemeral: true });
+        return interaction.reply({ embeds: [errorEmbed('🔒 Bạn không có giấy phép kinh doanh!\nChỉ Nhà Phát Triển hoặc người được cấp quyền mới có thể đăng bán hàng trên Shop Thương Mại.')], flags: MessageFlags.Ephemeral });
       }
 
       return interaction.update({
@@ -290,10 +290,10 @@ module.exports = {
       const listingId = parts[2];
       const listing   = await ShopListing.findById(listingId).lean();
       if (!listing) {
-        return interaction.reply({ embeds: [errorEmbed('Sản phẩm không còn tồn tại (có thể đã hết hạn hoặc đã bán)!')], ephemeral: true });
+        return interaction.reply({ embeds: [errorEmbed('Sản phẩm không còn tồn tại (có thể đã hết hạn hoặc đã bán)!')], flags: MessageFlags.Ephemeral });
       }
       if (listing.sellerId === interaction.user.id) {
-        return interaction.reply({ embeds: [errorEmbed('Bạn không thể mua đồ của chính mình!')], ephemeral: true });
+        return interaction.reply({ embeds: [errorEmbed('Bạn không thể mua đồ của chính mình!')], flags: MessageFlags.Ephemeral });
       }
 
       const info    = getItemInfo(listing.item);
@@ -377,7 +377,7 @@ module.exports = {
     if (action === 'my') {
       const myListings = await ShopListing.find({ sellerId: interaction.user.id, guildId: interaction.guildId }).lean();
       if (!myListings.length) {
-        return interaction.reply({ embeds: [errorEmbed('Bạn đang không có sản phẩm nào được bày bán!')], ephemeral: true });
+        return interaction.reply({ embeds: [errorEmbed('Bạn đang không có sản phẩm nào được bày bán!')], flags: MessageFlags.Ephemeral });
       }
       const lines = myListings.map((l, i) => {
         const info = getItemInfo(l.item);
@@ -390,7 +390,7 @@ module.exports = {
       
       return interaction.update({
         embeds: [bakeryEmbed('📦 Quản Lý Cửa Hàng Của Bạn', lines.join('\n\n'), COLORS.purple)],
-        components: delBtns.length ? [row(...delBtns), row(btn('menu:section:shop', '◀ Quay Lại', 'Secondary'))] : [row(btn('menu:section:shop', '◀ Quay Lại', 'Secondary'))],
+        components: delBtns.length ? [row(...delBtns), row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary'))] : [row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary'))],
       });
     }
 
@@ -415,7 +415,7 @@ module.exports = {
   async handleModal(interaction) {
     const parts = interaction.customId.split(':');
     if (parts[0] !== 'shop' || parts[1] !== 'list_modal') return;
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const itemKey  = parts[2];
     const qtyRaw   = interaction.fields.getTextInputValue('quantity').trim();
@@ -467,7 +467,7 @@ module.exports = {
     });
 
     const label = info ? `${info.emoji} ${info.name}` : itemKey;
-    await interaction.update({
+    await interaction.editReply({
       embeds: [successEmbed('📦 Đã Đăng Bán!', [
         `${label} × **${qty}** với giá **${price.toLocaleString('vi-VN')} xu/cái**`,
         `💸 Tổng giá trị: **${(qty * price).toLocaleString('vi-VN')}** xu`,

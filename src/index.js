@@ -48,8 +48,9 @@ const loadCommands = (dir) => {
     } else if (file.endsWith('.js')) {
       const cmd = require(fullPath);
       if (cmd.data && (cmd.execute || cmd.executeMessage)) {
+                cmd.__filePath = fullPath; // Lưu lại đường dẫn thật của file
         client.commands.set(cmd.data.name, cmd);
-        console.log(`  ✅ Loaded: /${cmd.data.name}`);
+                console.log(`  ✅ Loaded: /${cmd.data.name.padEnd(12)} -> [${fullPath}]`);
       }
     }
   }
@@ -136,7 +137,7 @@ client.on('interactionCreate', async (interaction) => {
       if (guildConfig && guildConfig.allowedChannels && guildConfig.allowedChannels.length > 0) {
         if (!guildConfig.allowedChannels.includes(interaction.channelId)) {
           if (interaction.isRepliable()) {
-            return interaction.reply({ content: `🚫 Tiệm bánh chỉ phục vụ tại các kênh: ${guildConfig.allowedChannels.map(id => `<#${id}>`).join(', ')}`, ephemeral: true });
+            return interaction.reply({ content: `🚫 Tiệm bánh chỉ phục vụ tại các kênh: ${guildConfig.allowedChannels.map(id => `<#${id}>`).join(', ')}`, flags: MessageFlags.Ephemeral });
           }
           return;
         }
@@ -150,7 +151,7 @@ client.on('interactionCreate', async (interaction) => {
         const reason = dbUser.banReason || 'Không có lý do';
         return interaction.reply({
           content: `🔨 Bạn đã bị cấm sử dụng bot.\n📝 Lý do: *${reason}*\nLiên hệ Admin server để được hỗ trợ.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
     }
@@ -206,12 +207,22 @@ client.on('interactionCreate', async (interaction) => {
         const prefix = interaction.customId.split(':')[0];
         
         if (!publicPrefixes.includes(prefix)) {
-          return interaction.reply({ content: '⚠️ Nút này không dành cho bạn! Vui lòng tự gõ lệnh để sử dụng nhé. 🌸', ephemeral: true });
+          return interaction.reply({ content: '⚠️ Nút này không dành cho bạn! Vui lòng tự gõ lệnh để sử dụng nhé. 🌸', flags: MessageFlags.Ephemeral });
         }
       }
 
       const prefix = interaction.customId.split(':')[0];
       const cmd    = client.commands.get(prefix);
+
+      // DEBUG ROUTER CHÍNH
+      console.log(`\n[🔍 DEBUG INTERACTION] Action từ User: ${interaction.user.tag}`);
+      console.log(` -> Custom ID : ${interaction.customId}`);
+      if (cmd) {
+        console.log(` -> Routing to: ${cmd.__filePath}`);
+      } else {
+        console.log(` -> ❌ LỖI: Không tìm thấy file nào xử lý prefix '${prefix}'`);
+      }
+
       if (cmd?.handleComponent) {
         await cmd.handleComponent(interaction);
         const { refreshMenuTimeout } = require('./utils/gameUtils');
@@ -250,7 +261,7 @@ client.on('interactionCreate', async (interaction) => {
     // Gửi thông báo lỗi thân thiện cho user
     const errPayload = {
       content:   `❌ Đã xảy ra lỗi nội bộ: \`${err.message}\`\nAdmin đã được thông báo về lỗi này! 🌸`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     };
     try {
       if (interaction.replied || interaction.deferred) {

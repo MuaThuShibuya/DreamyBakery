@@ -4,7 +4,7 @@
  * @description Lệnh /daily — Điểm danh nhận thưởng hàng ngày.
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
 const { isNewDay, bakery_add_money, randomInt } = require('../../utils/gameUtils');
@@ -40,12 +40,12 @@ module.exports = {
   },
   async execute(interaction) {
     const reply = await processDaily(interaction, interaction.user.id, interaction.guildId);
-    await interaction.reply({ ...reply, ephemeral: true });
+    await interaction.reply({ ...reply, flags: MessageFlags.Ephemeral });
   },
   async handleComponent(interaction) {
     if (interaction.customId === 'daily:claim') {
       const reply = await processDaily(interaction, interaction.user.id, interaction.guildId);
-      return interaction.reply({ ...reply, ephemeral: true });
+      return interaction.reply({ ...reply, flags: MessageFlags.Ephemeral });
     }
   }
 };

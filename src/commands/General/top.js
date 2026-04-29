@@ -39,10 +39,14 @@ async function buildTopEmbed(type, guildId) {
       const lvl = calcLevel(u.exp);
       return `⭐ Cấp **${lvl}** — ${getLevelTitle(lvl)}`;
     };
-  } else {
+  } else if (type === 'baked') {
     title     = '🧁 Bảng Xếp Hạng — Nướng Nhiều Nhất';
     sortField = { 'stats.totalBaked': -1 };
     formatFn  = u => `🧁 **${u.stats.totalBaked.toLocaleString('vi-VN')}** bánh`;
+  } else if (type === 'bp') {
+    title     = '⚔️ Bảng Xếp Hạng — Lực Chiến Cao Nhất';
+    sortField = { 'stats.highestBP': -1 };
+    formatFn  = u => `⚔️ **${(u.stats.highestBP || 0).toLocaleString('vi-VN')}** BP`;
   }
 
   const users = await User.find({ guildId })
@@ -72,13 +76,16 @@ async function buildTopEmbed(type, guildId) {
 
 /** Hàng nút chuyển đổi bảng xếp hạng. */
 function buildTopNav(current, hasBack = false) {
-  const r = row(
+  const r1 = row(
     btn('top:coins', '💰 Giàu Nhất',    current === 'coins' ? 'Success'   : 'Secondary'),
     btn('top:exp',   '⭐ Cấp Cao Nhất', current === 'exp'   ? 'Success'   : 'Secondary'),
     btn('top:baked', '🧁 Nướng Nhiều',  current === 'baked' ? 'Success'   : 'Secondary'),
+    btn('top:bp',    '⚔️ Lực Chiến',    current === 'bp'    ? 'Success'   : 'Secondary')
   );
-  if (hasBack) r.addComponents(btn('menu:section:social', '◀ Quay Lại', 'Secondary'));
-  return [r];
+  if (hasBack) {
+    return [r1, row(btn('menu:section:social', '◀ Quay Lại', 'Secondary'))];
+  }
+  return [r1];
 }
 
 // ─── Module export ───────────────────────────────────────────────────────────
@@ -104,6 +111,7 @@ module.exports = {
    */
   async handleComponent(interaction) {
     const type = interaction.customId.split(':')[1];
+    const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:social'));
 
     if (type === 'open') {
       await interaction.deferUpdate();
@@ -118,7 +126,7 @@ module.exports = {
     const embed = await buildTopEmbed(type, interaction.guildId);
     await interaction.editReply({
       embeds:     [embed],
-      components: buildTopNav(type),
+      components: buildTopNav(type, hasBack),
     });
   },
 };

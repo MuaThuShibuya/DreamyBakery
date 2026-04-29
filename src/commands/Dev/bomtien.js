@@ -104,7 +104,7 @@ module.exports = {
   async execute(interaction) {
     return interaction.reply({
       content: '⚠️ Vui lòng sử dụng lệnh tiền tố để thao tác nhanh hơn (VD: `.bomtien 1000000` hoặc `.bomtien capquyen @user`)',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   }
 };

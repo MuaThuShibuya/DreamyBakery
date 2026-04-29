@@ -183,17 +183,17 @@
 
 //     // Không tặng chính mình
 //     if (target.id === interaction.user.id) {
-//       return interaction.reply({ embeds: [errorEmbed('Bạn không thể tặng quà cho chính mình! 😅')], ephemeral: true });
+//       return interaction.reply({ embeds: [errorEmbed('Bạn không thể tặng quà cho chính mình! 😅')], flags: MessageFlags.Ephemeral });
 //     }
 //     // Không tặng bot
 //     if (target.bot) {
-//       return interaction.reply({ embeds: [errorEmbed('Không thể tặng quà cho bot!')], ephemeral: true });
+//       return interaction.reply({ embeds: [errorEmbed('Không thể tặng quà cho bot!')], flags: MessageFlags.Ephemeral });
 //     }
 
 //     // Kiểm tra vật phẩm hợp lệ
 //     const info = getItemInfo(itemKey);
 //     if (!info) {
-//       return interaction.reply({ embeds: [errorEmbed('Vật phẩm không tồn tại! Dùng `.inventory` để xem tên đúng.')], ephemeral: true });
+//       return interaction.reply({ embeds: [errorEmbed('Vật phẩm không tồn tại! Dùng `.inventory` để xem tên đúng.')], flags: MessageFlags.Ephemeral });
 //     }
 
 //     // Kiểm tra kho người tặng
@@ -207,7 +207,7 @@
 //     if (has < qty) {
 //       return interaction.reply({
 //         embeds: [errorEmbed(`Không đủ hàng! Bạn chỉ có **${has}** ${info.emoji} **${info.name}**.`)],
-//         ephemeral: true,
+//         flags: MessageFlags.Ephemeral,
 //       });
 //     }
 
@@ -312,11 +312,11 @@
 //       const itemKey = parts[3];
 //       const qty = parseInt(interaction.fields.getTextInputValue('qty'));
 
-//       if (isNaN(qty) || qty <= 0) return interaction.reply({ embeds: [errorEmbed('Số lượng không hợp lệ!')], ephemeral: true });
+//       if (isNaN(qty) || qty <= 0) return interaction.reply({ embeds: [errorEmbed('Số lượng không hợp lệ!')], flags: MessageFlags.Ephemeral });
       
 //       const sender = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
 //       const has = sender.inventory[itemKey] || 0;
-//       if (has < qty) return interaction.reply({ embeds: [errorEmbed('Không đủ hàng trong kho!')], ephemeral: true });
+//       if (has < qty) return interaction.reply({ embeds: [errorEmbed('Không đủ hàng trong kho!')], flags: MessageFlags.Ephemeral });
 
 //       const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetId } }, { upsert: true, new: true });
 //       sender.inventory[itemKey] -= qty;

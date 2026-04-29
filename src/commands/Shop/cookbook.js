@@ -75,7 +75,7 @@ function buildNav(page, hasBack = false) {
     btn('cookbook:page:prev', '◀ Trang Trước', 'Secondary', page === 0),
     btn('cookbook:page:next', '▶ Trang Tiếp',  'Secondary', page === TOTAL_PAGES - 1),
   );
-  if (hasBack) r.addComponents(btn('menu:section:bake', '◀ Quay Lại', 'Secondary'));
+  if (hasBack) r.addComponents(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary'));
   return r;
 }
 
@@ -117,7 +117,7 @@ module.exports = {
       ? Math.min(current + 1, TOTAL_PAGES - 1)
       : Math.max(current - 1, 0);
 
-    const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bake'));
+    const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery'));
     await interaction.update({
       embeds:     [buildPage(next)],
       components: [buildNav(next, hasBack)],

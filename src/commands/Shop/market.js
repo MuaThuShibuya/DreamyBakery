@@ -221,10 +221,6 @@ module.exports = {
 
       return interaction.update({
         embeds:     [buildMarketEmbed()],
-        components: [row(
-          btn('market:show_buy',  '🛒 Mua Nguyên Liệu', 'Primary'),
-          btn('market:show_sell', '💰 Bán Hàng',        'Success'),
-        )],
         components: comps,
       });
     }

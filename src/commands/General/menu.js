@@ -37,9 +37,13 @@ function buildMenu(user, member, role, category = 'home') {
     { label: '🏠 Trang Chủ', description: 'Tổng quan tài khoản', value: 'home' },
     { label: '👤 Hồ Sơ & Kho', description: 'Xem thông tin, túi đồ và nâng cấp', value: 'profile' },
     { label: '🌿 Khu Sinh Thái', description: 'Trồng trọt, chăn nuôi thu nguyên liệu', value: 'harvest' },
-    { label: '🛒 Thương Mại', description: 'Chợ NPC, ngân hàng, chuyển khoản', value: 'trade' },
-    { label: '🎮 Xã Hội & Giải Trí', description: 'Thú cưng, PvP, bảng xếp hạng', value: 'social' },
-    { label: '🏬 Khu Vực Kinh Doanh', description: 'Nướng bánh, đơn hàng, quản lý shop', value: 'shop' },
+    // Các danh mục đã được tách biệt rõ ràng (Tuyệt đối không dùng chung)
+    { label: '🏬 Tiệm Bánh', description: 'Nướng bánh và quản lý đơn hàng', value: 'bakery' },
+    { label: '🛒 Thương Mại', description: 'Chợ NPC và Shop người chơi', value: 'trade' },
+    { label: '💳 Ngân Hàng', description: 'Chuyển khoản và vay nợ', value: 'bank' },
+    { label: '🐾 Trại Thú Cưng', description: 'Quản lý thú cưng, trang bị và kỹ năng', value: 'pets' },
+    { label: '🏰 Tháp Aincrad', description: 'Khiêu chiến hộ vệ tháp để nhận thưởng', value: 'tower' },
+    { label: '🎮 Xã Hội & Giải Trí', description: 'Tương tác, PvP, bảng xếp hạng', value: 'social' },
   ];
 
   if (role === ROLE.DEV) {
@@ -66,7 +70,7 @@ function buildMenu(user, member, role, category = 'home') {
         ``,
         `╭───────── **TỔNG QUAN** ─────────╮`,
         ` 💰 **Tài sản:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
-        ` ⭐ **Cấp ${lvl}:** ${progressBar(pct, 10)} ${pct}%`,
+        ` ⭐ **Cấp ${lvl}:** \`[${progressBar(pct, 12)}]\` ${pct}%`,
         ` ❤️ **Thể lực:** ${Math.floor(user.hp)} / 100`,
         `╰────────────────────────────────╯`,
         ``,
@@ -80,7 +84,6 @@ function buildMenu(user, member, role, category = 'home') {
     btnRows.push(row(
       btn('daily:claim', '🎁 Điểm Danh', 'Primary'),
       btn('inventory:open', '📦 Kho Đồ', 'Primary'),
-      btn('garden:open', '🌿 Ra Vườn', 'Primary')
     ));
   }
   else if (category === 'profile') {
@@ -89,8 +92,10 @@ function buildMenu(user, member, role, category = 'home') {
     const title = getLevelTitle(level);
 
     let descLines = [
-      `Danh hiệu: **${title}** ✨`,
-      `Tiến trình: **${progress} / ${needed} EXP**`,
+      `**Danh hiệu:** ${title} ✨`,
+      `**Cấp độ:** ${level} — Tiến trình: ${pct}%`,
+      `\`[${progressBar(pct, 20)}]\``,
+      `*(${progress} / ${needed} EXP)*`,
       '',
     ];
 
@@ -129,22 +134,33 @@ function buildMenu(user, member, role, category = 'home') {
     embed = bakeryEmbed('🌿 Khu Sinh Thái', `Tiến hành trồng trọt và chăn nuôi để thu thập nguyên liệu.\n\n💡 *Mẹo: Nâng cấp Vườn và Trại để tăng sản lượng nhận được!*`, COLORS.success);
     btnRows.push(row(btn('garden:open', '🌿 Ra Vườn (5p)', 'Primary'), btn('farm:open', '🏡 Ra Trại (10p)', 'Primary')));
   }
-  else if (category === 'trade') {
+  else if (category === 'bakery') {
+    // Phân khu Tiệm Bánh
     if (role === ROLE.USER) {
-      embed = bakeryEmbed('🏪 Khu Thương Mại', `Khu vực giao thương sầm uất của thị trấn.\n\n🔒 **Lưu ý:** Bạn cần Giấy Phép để mở khóa Lò nướng và Shop Cá Nhân.`, COLORS.gold);
-      btnRows.push(row(btn('market:open', '🏪 Chợ NPC', 'Primary'), btn('shop:open', '🏬 Xem Shop', 'Primary')));
-      btnRows.push(row(btn('chuyentien:open', '💸 Chuyển Khoản', 'Secondary'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
+      embed = bakeryEmbed('🏬 Tiệm Bánh', `Khu vực nướng bánh và giao đơn.\n\n🔒 **Lưu ý:** Bạn cần Giấy Phép Kinh Doanh để mở khóa Lò nướng và Tiệm Bánh.`, COLORS.gold);
     } else {
-      embed = bakeryEmbed('🏪 Thương Mại & Kinh Doanh', `Nơi tạo ra những chiếc bánh hảo hạng và giao thương làm giàu!`, COLORS.gold);
+      embed = bakeryEmbed('🏬 Tiệm Bánh', `Nơi tạo ra những chiếc bánh hảo hạng và phục vụ khách hàng!`, COLORS.gold);
       btnRows.push(row(btn('bake:open', '🧁 Nướng Bánh', 'Primary'), btn('oven:open', '🔥 Lò Nướng', 'Primary'), btn('cookbook:open', '📖 Sổ Tay', 'Secondary')));
-      btnRows.push(row(btn('order:open', '📋 Giao Đơn NPC', 'Primary'), btn('market:open', '🏪 Chợ Đen', 'Secondary'), btn('shop:open', '🏬 Shop Của Bạn', 'Secondary')));
-      btnRows.push(row(btn('chuyentien:open', '💸 Chuyển Khoản', 'Secondary'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
+      btnRows.push(row(btn('order:open', '📋 Giao Đơn NPC', 'Primary')));
     }
   }
+  else if (category === 'trade') {
+    // Phân khu Thương Mại
+    embed = bakeryEmbed('🛒 Thương Mại', `Khu vực giao thương sầm uất của thị trấn.`, COLORS.gold);
+    if (role === ROLE.USER) {
+      btnRows.push(row(btn('market:open', '🏪 Chợ NPC', 'Primary'), btn('shop:open', '🏬 Xem Shop', 'Primary')));
+    } else {
+      btnRows.push(row(btn('market:open', '🏪 Chợ Đen', 'Primary'), btn('shop:open', '🏬 Shop Của Bạn', 'Secondary')));
+    }
+  }
+  else if (category === 'bank') {
+    embed = bakeryEmbed('💳 Ngân Hàng', `Quản lý tài chính, chuyển khoản và vay nợ.`, COLORS.success);
+    btnRows.push(row(btn('chuyentien:open', '💸 Chuyển Khoản', 'Primary'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
+  }
   else if (category === 'social') {
-    embed = bakeryEmbed('🎮 Xã Hội & Giải Trí', `Tương tác với bạn bè, chăm sóc linh thú và cạnh tranh thứ hạng.\n\n🔽 *Chọn một người chơi bên dưới để thao tác:*`, COLORS.warning);
+    embed = bakeryEmbed('🎮 Xã Hội & Giải Trí', `Tương tác với bạn bè, Thách đấu và Cạnh tranh thứ hạng.\n\n🔽 *Chọn một người chơi bên dưới để thao tác:*`, COLORS.warning);
     btnRows.push(row(userSelectMenu('menu:target', '🎯 Chọn người chơi để tương tác...')));
-    btnRows.push(row(btn('pet:open', '🐾 Kho Thú Cưng', 'Primary'), btn('top:open', '🏆 Bảng Xếp Hạng', 'Primary')));
+    btnRows.push(row(btn('top:open', '🏆 Bảng Xếp Hạng', 'Primary')));
   }
   else if (category === 'dev') {
     embed = bakeryEmbed('🔧 Bảng Điều Khiển Dev', `Khu vực quản trị tối cao của hệ thống.`, COLORS.gold);
@@ -152,6 +168,9 @@ function buildMenu(user, member, role, category = 'home') {
     btnRows.push(row(btn('menu:dev:give', '🎁 Tặng Đồ', 'Primary'), btn('menu:dev:coins', '💰 Chỉnh Xu', 'Primary'), btn('menu:dev:exp', '⭐ Cộng EXP', 'Primary'), btn('menu:dev:setshop', '🏬 Cấp Shop', 'Primary')));
     btnRows.push(row(btn('menu:dev:ban', '🔨 Ban', 'Danger'), btn('menu:dev:unban', '✅ Bỏ Cấm', 'Success'), btn('menu:dev:stats', '📊 Thống Kê', 'Secondary'), btn('menu:dev:broadcast', '📢 Broadcast', 'Secondary')));
     btnRows.push(row(btn('menu:dev:resetcd', '🔄 Reset CD', 'Secondary'), btn('menu:dev:reset', '⚠️ Xóa Dữ Liệu', 'Danger')));
+  }
+  else {
+    embed = bakeryEmbed('❌ Lỗi Hiển Thị', 'Danh mục này không còn tồn tại do hệ thống vừa được nâng cấp. Vui lòng chọn danh mục khác!', COLORS.error);
   }
 
   // Luôn có nút Trang Chủ và Đóng
@@ -183,7 +202,7 @@ const DEV_MODALS = {
     .addComponents(
       makeTargetInput(),
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('item').setLabel('Tên vật phẩm (VD: wheat, shiny_cheesecake)').setStyle(TextInputStyle.Short).setRequired(true),
+        new TextInputBuilder().setCustomId('item').setLabel('Tên vật phẩm (VD: wheat, crystals)').setStyle(TextInputStyle.Short).setRequired(true),
       ),
       new ActionRowBuilder().addComponents(
         new TextInputBuilder().setCustomId('qty').setLabel('Số lượng (1–9999)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('1'),
@@ -304,49 +323,53 @@ module.exports = {
     const parts  = interaction.customId.split(':');
     const action = parts[1];
 
+    // DEBUG MENU
+    console.log(`[📂 DEBUG MENU] Handle Action: '${action}' | Parts: [${parts.join(', ')}] | Values: [${interaction.values?.join(', ') || 'N/A'}]`);
+
     // ── Đóng Menu (Tắt tin nhắn) ──────────────────────────────────────────────
     if (action === 'close') {
       return interaction.message.delete().catch(() => {});
     }
 
-    // ── Dropdown Nav (Danh sách thả xuống) ────────────────────────────────────
-    if (action === 'nav') {
-      const category = interaction.values[0];
+    // ── Dropdown Nav & Nút Quay Lại (Section) ─────────────────────────────────
+    if (action === 'nav' || action === 'section') {
+      const category = action === 'nav' ? interaction.values[0] : parts[2];
+      console.log(`[📂 DEBUG MENU] Đang điều hướng tới Category: '${category}'`);
+      
       if (category === 'locked') return interaction.deferUpdate().catch(() => {});
+      
+      // Chuyển hướng sang module Pet / Tower
+      if (category === 'pets') {
+        interaction.customId = 'pet:open';
+        return interaction.client.commands.get('pet').handleComponent(interaction);
+      }
+      if (category === 'tower') {
+        interaction.customId = 'pet:tower';
+        return interaction.client.commands.get('pet').handleComponent(interaction);
+      }
+
+      // Gọi Menu Nội Bộ
       const user = await User.findOneAndUpdate({ userId: interaction.user.id, guildId: interaction.guildId }, { $setOnInsert: { username: interaction.user.username } }, { upsert: true, new: true });
       const role = getRole(interaction.user.id, user);
-      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, category)).catch(e => {
-        if (e.code === 40060 || e.code === 'InteractionAlreadyReplied') return;
+
+      try {
+        return await interaction.update(buildMenu(user, interaction.member || interaction.user, role, category));
+      } catch (e) {
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
         throw e;
-      });
+      }
     }
 
     // ── Quay về Home ──────────────────────────────────────────────────────────
     if (action === 'home') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const role = getRole(interaction.user.id, user);
-      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, 'home'));
-    }
-
-    // ── Nút "Quay Lại" từ các lệnh khác ───────────────────────────────────────
-    if (action === 'section') {
-      const section = parts[2];
-      const user    = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      const role    = getRole(interaction.user.id, user);
-
-      // Định tuyến lại vì shop/trade đã gộp
-      const map = { bakery: 'profile', harvest: 'harvest', bake: 'trade', trade: 'trade', orders: 'trade', social: 'social', shop: 'trade', dev: 'dev' };
-      const cat = map[section] || 'home';
-
-      if (section === 'pets') {
-        interaction.customId = 'pet:open';
-        return interaction.client.commands.get('pet').handleComponent(interaction);
-      }
-
-      return interaction.update(buildMenu(user, interaction.member || interaction.user, role, cat)).catch(e => {
-        if (e.code === 40060 || e.code === 'InteractionAlreadyReplied') return;
+      try {
+        return await interaction.update(buildMenu(user, interaction.member || interaction.user, role, 'home'));
+      } catch (e) {
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
         throw e;
-      });
+      }
     }
 
     // ── Xã Hội: Chọn người chơi mục tiêu ─────────────────────────────────────
@@ -551,7 +574,7 @@ module.exports = {
     if (sub === 'give') {
       const itemKey = interaction.fields.getTextInputValue('item').trim().toLowerCase();
       const qty     = parseInt(interaction.fields.getTextInputValue('qty'), 10);
-      if (!ALL_ITEM_KEYS.includes(itemKey)) {
+      if (!ALL_ITEM_KEYS.includes(itemKey) && itemKey !== 'crystals') {
         return interaction.reply({ embeds: [errorEmbed(`Item **${itemKey}** không tồn tại!`)], flags: MessageFlags.Ephemeral });
       }
       if (isNaN(qty) || qty < 1 || qty > 9999) {
@@ -562,13 +585,17 @@ module.exports = {
         { $setOnInsert: { username: targetId } },
         { upsert: true, new: true },
       );
-      user.inventory[itemKey] = (user.inventory[itemKey] || 0) + qty;
-      user.markModified('inventory');
+      if (itemKey === 'crystals') {
+        user.crystals = (user.crystals || 0) + qty;
+      } else {
+        user.inventory[itemKey] = (user.inventory[itemKey] || 0) + qty;
+        user.markModified('inventory');
+      }
       await user.save();
       const info = getItemInfo(itemKey);
       await logAdmin('GIVE_ITEM', targetId, `Tặng ${qty} x ${itemKey}`);
       return interaction.reply({
-        embeds: [successEmbed('✅ Đã Tặng Vật Phẩm', `👤 **<@${targetId}>** nhận được:\n${info ? `${info.emoji} ${info.name}` : itemKey} × **${qty}**`)],
+        embeds: [successEmbed('✅ Đã Tặng Vật Phẩm', `👤 **<@${targetId}>** nhận được:\n${itemKey === 'crystals' ? '💎 Tinh Thể' : (info ? `${info.emoji} ${info.name}` : itemKey)} × **${qty}**`)],
         components: [backBtn],
         flags: MessageFlags.Ephemeral
       });

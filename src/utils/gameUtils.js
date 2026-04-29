@@ -134,9 +134,9 @@ function levelProgress(exp, lvl) {
  * @param {number} [len=12] - Độ dài thanh
  * @returns {string} VD: "🟣🟣🟣🟣⬜⬜⬜⬜"
  */
-function progressBar(pct, len = 12) {
+function progressBar(pct, len = 15) {
   const fill = Math.round((pct / 100) * len);
-  return '🟣'.repeat(fill) + '⬜'.repeat(len - fill);
+  return '▰'.repeat(fill) + '▱'.repeat(len - fill);
 }
 
 /**

@@ -16,7 +16,7 @@
  *  - Không thêm EXP khi collect (EXP đã tính lúc bake)
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { bakeryEmbed, successEmbed, btn, row } = require('../../utils/embeds');
 const { BAKED_GOODS, COLORS } = require('../../utils/constants');
@@ -88,7 +88,7 @@ module.exports = {
       { upsert: true, new: true },
     );
     
-    if (!isShopOrAbove(interaction.user.id, user)) return interaction.reply({ embeds: [errorEmbed('🔒 Lò nướng chỉ dành cho Chủ Shop!')], ephemeral: true });
+    if (!isShopOrAbove(interaction.user.id, user)) return interaction.reply({ embeds: [errorEmbed('🔒 Lò nướng chỉ dành cho Chủ Shop!')], flags: MessageFlags.Ephemeral });
 
     const { embed, hasDone } = buildOvenEmbed(user);
 
@@ -112,7 +112,7 @@ module.exports = {
     // Kiểm tra bảo mật Back-end
     const userSec = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
     if (!isShopOrAbove(interaction.user.id, userSec)) {
-      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới được dùng Lò Nướng.')], ephemeral: true });
+      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới được dùng Lò Nướng.')], flags: MessageFlags.Ephemeral });
     }
 
     // ── Mở từ menu ──────────────────────────────────────────────────────────
@@ -123,14 +123,14 @@ module.exports = {
         { upsert: true, new: true },
       );
 
-      if (!isShopOrAbove(interaction.user.id, user)) return interaction.reply({ embeds: [errorEmbed('🔒 Lò nướng chỉ dành cho Chủ Shop!')], ephemeral: true });
+      if (!isShopOrAbove(interaction.user.id, user)) return interaction.reply({ embeds: [errorEmbed('🔒 Lò nướng chỉ dành cho Chủ Shop!')], flags: MessageFlags.Ephemeral });
 
       const { embed, hasDone } = buildOvenEmbed(user);
       return interaction.update({
         embeds:     [embed],
         components: [
           row(btn('oven:collect', '🎁 Lấy Bánh!', 'Success', !hasDone)),
-          row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), btn('menu:section:bake', '◀ Về Bếp', 'Secondary')),
+          row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), btn('menu:section:bakery', '◀ Về Bếp', 'Secondary')),
           row(btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))
         ],
       });
@@ -139,14 +139,14 @@ module.exports = {
     // ── Làm mới: chỉ reload và update message ───────────────────────────────
     if (action === 'refresh') {
       await interaction.deferUpdate();
-      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bake'));
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery'));
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const { embed, hasDone } = buildOvenEmbed(user);
       return interaction.editReply({
         embeds:     [embed],
         components: [
           row(btn('oven:collect', '🎁 Lấy Bánh!', 'Success', !hasDone)),
-          row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), ...(hasBack ? [btn('menu:section:bake', '◀ Về Bếp', 'Secondary')] : [])),
+          row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), ...(hasBack ? [btn('menu:section:bakery', '◀ Về Bếp', 'Secondary')] : [])),
           ...(hasBack ? [row(btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))] : [])
         ].filter(Boolean),
       });
@@ -155,7 +155,7 @@ module.exports = {
     // ── Collect: thêm bánh đã xong vào inventory ────────────────────────────
     if (action === 'collect') {
       await interaction.deferUpdate();
-      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bake'));
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery'));
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const now  = new Date();
       const done = (user.bakingQueue || []).filter(j => new Date(j.finishTime) <= now);
@@ -167,7 +167,7 @@ module.exports = {
           embeds:     [embed],
           components: [
             row(btn('oven:collect', '🎁 Lấy Bánh!', 'Success', true)),
-            row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), ...(hasBack ? [btn('menu:section:bake', '◀ Về Bếp', 'Secondary')] : [])),
+            row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), ...(hasBack ? [btn('menu:section:bakery', '◀ Về Bếp', 'Secondary')] : [])),
             ...(hasBack ? [row(btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))] : [])
           ].filter(Boolean),
         });
@@ -203,7 +203,7 @@ module.exports = {
         )],
         components: [
           row(btn('oven:collect', '🎁 Lấy Bánh!', 'Success', true)),
-          row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), ...(hasBack ? [btn('menu:section:bake', '◀ Về Bếp', 'Secondary')] : [])),
+          row(btn('oven:refresh', '🔄 Làm Mới', 'Primary'), ...(hasBack ? [btn('menu:section:bakery', '◀ Về Bếp', 'Secondary')] : [])),
           ...(hasBack ? [row(btn('menu:home', '🏠 Về Trang Chủ', 'Secondary'))] : [])
         ].filter(Boolean),
       });

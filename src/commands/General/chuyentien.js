@@ -4,7 +4,7 @@
  * @description Lệnh /chuyentien — Chuyển xu cho người chơi khác
  */
 
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { successEmbed, errorEmbed, bakeryEmbed, row, btn, userSelectMenu } = require('../../utils/embeds');
 const { resolveUserId } = require('../../utils/targetResolver');
@@ -71,7 +71,7 @@ module.exports = {
 
     return interaction.reply({
       content: '⚠️ Vui lòng sử dụng lệnh tiền tố để thực hiện chuyển tiền (VD: `.chuyentien @user 1000`)',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   },
 
@@ -83,7 +83,7 @@ module.exports = {
         const menu = userSelectMenu('chuyentien:select_target', '🎯 Chọn người chơi muốn chuyển tiền...');
         return interaction.update({
           embeds: [bakeryEmbed('💸 Chuyển Tiền', 'Vui lòng chọn người chơi bạn muốn chuyển tiền từ menu bên dưới:', COLORS.success)],
-          components: [row(menu), row(btn('menu:section:trade', '◀ Quay Lại', 'Secondary'))]
+          components: [row(menu), row(btn('menu:section:bank', '◀ Quay Lại', 'Secondary'))]
         });
       }
       const modal = new ModalBuilder().setCustomId(`chuyentien:modal:${targetId}`).setTitle('💸 Chuyển Tiền');
@@ -94,7 +94,7 @@ module.exports = {
 
     if (parts[1] === 'select_target') {
       const targetId = interaction.values[0];
-      if (targetId === interaction.user.id) return interaction.reply({ embeds: [errorEmbed('Không thể tự chuyển cho chính mình!')], ephemeral: true });
+      if (targetId === interaction.user.id) return interaction.reply({ embeds: [errorEmbed('Không thể tự chuyển cho chính mình!')], flags: MessageFlags.Ephemeral });
       const modal = new ModalBuilder().setCustomId(`chuyentien:modal:${targetId}`).setTitle('💸 Chuyển Tiền');
       const amountInput = new TextInputBuilder().setCustomId('amount').setLabel('Nhập số xu muốn chuyển:').setStyle(TextInputStyle.Short).setRequired(true);
       modal.addComponents(new ActionRowBuilder().addComponents(amountInput));
@@ -108,14 +108,14 @@ module.exports = {
       const targetId = parts[2];
       const amount = parseInt(interaction.fields.getTextInputValue('amount'));
       
-      if (isNaN(amount) || amount <= 0) return interaction.reply({ embeds: [errorEmbed('Số tiền không hợp lệ!')], ephemeral: true });
-      if (targetId === interaction.user.id) return interaction.reply({ embeds: [errorEmbed('Không thể tự chuyển tiền!')], ephemeral: true });
+      if (isNaN(amount) || amount <= 0) return interaction.reply({ embeds: [errorEmbed('Số tiền không hợp lệ!')], flags: MessageFlags.Ephemeral });
+      if (targetId === interaction.user.id) return interaction.reply({ embeds: [errorEmbed('Không thể tự chuyển tiền!')], flags: MessageFlags.Ephemeral });
 
       const sender = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      if (sender.coins < amount) return interaction.reply({ embeds: [errorEmbed(`Bạn không đủ tiền! Bạn chỉ có **${sender.coins.toLocaleString('vi-VN')}** xu.`)], ephemeral: true });
+      if (sender.coins < amount) return interaction.reply({ embeds: [errorEmbed(`Bạn không đủ tiền! Bạn chỉ có **${sender.coins.toLocaleString('vi-VN')}** xu.`)], flags: MessageFlags.Ephemeral });
 
       const targetUser = await interaction.client.users.fetch(targetId);
-      if (targetUser.bot) return interaction.reply({ embeds: [errorEmbed('Bot không xài tiền nha!')], ephemeral: true });
+      if (targetUser.bot) return interaction.reply({ embeds: [errorEmbed('Bot không xài tiền nha!')], flags: MessageFlags.Ephemeral });
 
       const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetUser.username } }, { upsert: true, new: true });
 

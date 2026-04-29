@@ -17,7 +17,7 @@
  * Có thể mở ephemeral từ nút shortcut trong /profile.
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { bakeryEmbed, errorEmbed, successEmbed, btn, row } = require('../../utils/embeds');
 const { BAKED_GOODS, NPCS, COLORS } = require('../../utils/constants');
@@ -129,7 +129,7 @@ module.exports = {
   async execute(interaction) {
     const user  = await fetchOrRefresh(interaction.user.id, interaction.guildId);
     if (!isShopOrAbove(interaction.user.id, user)) {
-      return interaction.reply({ embeds: [errorEmbed('🔒 Bạn phải là **Chủ Shop** mới có thể nhận và giao đơn hàng NPC!')], ephemeral: true });
+      return interaction.reply({ embeds: [errorEmbed('🔒 Bạn phải là **Chủ Shop** mới có thể nhận và giao đơn hàng NPC!')], flags: MessageFlags.Ephemeral });
     }
     const embed = buildOrderEmbed(user);
     const rows  = buildDeliverButtons(user.dailyOrders, user.inventory);
@@ -148,7 +148,7 @@ module.exports = {
 
     const userCheck = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
     if (!isShopOrAbove(interaction.user.id, userCheck)) {
-      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới được thao tác đơn hàng.')], ephemeral: true });
+      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập trái phép! Chỉ Chủ Shop mới được thao tác đơn hàng.')], flags: MessageFlags.Ephemeral });
     }
 
     // ── Mở ephemeral từ shortcut profile ────────────────────────────────────
@@ -156,7 +156,7 @@ module.exports = {
       const user  = await fetchOrRefresh(interaction.user.id, interaction.guildId);
       const embed = buildOrderEmbed(user);
       const rows  = buildDeliverButtons(user.dailyOrders, user.inventory);
-      rows.push(row(btn('menu:section:shop', '◀ Quay Lại', 'Secondary')));
+      rows.push(row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary')));
       return interaction.update({ embeds: [embed], components: rows });
     }
 

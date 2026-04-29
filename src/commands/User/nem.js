@@ -1,6 +1,6 @@
 'use strict';
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const User = require('../../models/User');
 const { errorEmbed, bakeryEmbed, selectMenu, row } = require('../../utils/embeds');
 const { BAKED_GOODS, COLORS, BAKED_KEYS } = require('../../utils/constants');
@@ -79,7 +79,7 @@ module.exports = {
   async execute(interaction) {
     return interaction.reply({
       content: '⚠️ Vui lòng sử dụng lệnh tiền tố để ném bánh (VD: `.nem @user strawberry_cupcake`)',
-      ephemeral: true
+      flags: MessageFlags.Ephemeral
     });
   },
 

@@ -53,7 +53,21 @@ const petSchema = new mongoose.Schema({
   // Phẩm chất Sao (Tăng khi ăn bánh Thượng Hạng)
   stars:  { type: Number, default: 0 },
   // Chỉ số hiện tại (tăng theo cấp và khi cho ăn bánh)
-  stats:  { hp: Number, atk: Number, def: Number, spd: Number }
+  stats:  { hp: Number, atk: Number, def: Number, spd: Number },
+  // Kỹ năng đã học
+  skills: { type: [String], default: [] },
+  // Đặc tính (Trait)
+  trait: {
+    id: { type: String, default: null },
+    level: { type: Number, default: 1 }
+  },
+  // Trang bị
+  equipment: {
+    weapon: { type: String, default: null },
+    head:   { type: String, default: null },
+    armor:  { type: String, default: null },
+    accessory: { type: String, default: null }
+  }
 }); // Có _id tự động để phân biệt các con pet trùng loại
 
 // ─── Inventory schema ─────────────────────────────────────────────────────────
@@ -122,6 +136,19 @@ const userSchema = new mongoose.Schema({
   /** Quyền Tự Bơm Tiền (Được DEV cấp phép) */
   canSpawnCoins: { type: Boolean, default: false },
 
+  /** Tinh thể (Crystals for traits) */
+  crystals: { type: Number, default: 0 },
+
+  /** Pity Gacha */
+  gachaPitySSS: { type: Number, default: 0 },
+  gachaPitySSSP: { type: Number, default: 0 },
+
+  /** Kho trang bị thú cưng */
+  gears: { type: Map, of: Number, default: {} },
+
+  /** Kho sách kỹ năng */
+  skillBooks: { type: Map, of: Number, default: {} },
+
   /** Danh sách thú cưng đang sở hữu */
   pets: {
     type: [petSchema],
@@ -161,6 +188,7 @@ const userSchema = new mongoose.Schema({
     farm:   { type: Date, default: null },
     sneak:  { type: Date, default: null },
     pet_force: { type: Date, default: null },
+    boss:   { type: Date, default: null },
     daily:  { type: Date, default: null },
   },
 
@@ -173,7 +201,13 @@ const userSchema = new mongoose.Schema({
     totalSneaks: { type: Number, default: 0 }, // Tổng số lần đi trộm
     pvpWins:     { type: Number, default: 0 }, // Tổng số trận thắng Đấu Pet
     pvpLosses:   { type: Number, default: 0 }, // Tổng số trận thua Đấu Pet
+    highestBP:   { type: Number, default: 0 }, // Lực chiến cao nhất
   },
+
+  /** Hệ thống PvP (3 lần / 1 tiếng) & Tháp SAO */
+  pvpCount:   { type: Number, default: 0 },
+  pvpTime:    { type: Date, default: null },
+  towerFloor: { type: Number, default: 1 },
 
   /** Trạng thái cấm sử dụng bot (Admin set bằng /admin ban) */
   banned:    { type: Boolean, default: false },
@@ -192,5 +226,7 @@ userSchema.index({ guildId: 1, coins: -1 });
 userSchema.index({ guildId: 1, exp: -1 });
 /** Index cho bảng xếp hạng theo số bánh đã nướng */
 userSchema.index({ guildId: 1, 'stats.totalBaked': -1 });
+/** Index cho bảng xếp hạng theo Lực Chiến */
+userSchema.index({ guildId: 1, 'stats.highestBP': -1 });
 
 module.exports = mongoose.model('User', userSchema);

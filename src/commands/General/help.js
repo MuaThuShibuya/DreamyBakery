@@ -4,7 +4,7 @@
  * @description Lệnh /help — Hiển thị danh sách lệnh và hướng dẫn cơ bản.
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { bakeryEmbed, row, btn } = require('../../utils/embeds');
 const { COLORS } = require('../../utils/constants');
 const User = require('../../models/User');
@@ -121,7 +121,7 @@ module.exports = {
         ].join('\n'),
         COLORS.primary
       );
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
   }
 };

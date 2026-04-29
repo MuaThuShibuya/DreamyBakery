@@ -66,7 +66,7 @@ function buildUpgradeButtons(user, addBack = false) {
 
   // Chia thành 2 hàng, mỗi hàng 2 nút
   const rows = [row(...btns.slice(0, 2)), row(...btns.slice(2, 4))];
-  if (addBack) rows.push(row(btn('menu:section:bakery', '◀ Quay Lại', 'Secondary')));
+  if (addBack) rows.push(row(btn('menu:section:profile', '◀ Quay Lại', 'Secondary')));
   return rows;
 }
 
@@ -120,7 +120,7 @@ module.exports = {
 
       const user    = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const current = user.upgrades[key] || 0;
-      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:bakery'));
+      const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'menu:section:profile'));
 
       // Kiểm tra đã max chưa
       if (current >= u.maxLevel) {
