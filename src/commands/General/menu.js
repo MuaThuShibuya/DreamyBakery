@@ -152,6 +152,7 @@ function buildMenu(user, member, role, category = 'home') {
     } else {
       btnRows.push(row(btn('market:open', '🏪 Chợ Đen', 'Primary'), btn('shop:open', '🏬 Shop Của Bạn', 'Secondary')));
     }
+    btnRows.push(row(btn('pet:gear_shop', '🛡️ Shop Trang Bị', 'Success'), btn('pet:skill_shop', '📜 Shop Kỹ Năng', 'Success')));
   }
   else if (category === 'bank') {
     embed = bakeryEmbed('💳 Ngân Hàng', `Quản lý tài chính, chuyển khoản và vay nợ.`, COLORS.success);

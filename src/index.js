@@ -14,7 +14,7 @@
  */
 
 require('dotenv').config();
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, MessageFlags } = require('discord.js');
 const path = require('path');
 const fs   = require('fs');
 

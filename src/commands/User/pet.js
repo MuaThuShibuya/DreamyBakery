@@ -187,16 +187,15 @@ module.exports = {
       desc += `\n> 💡 *Để đấu PvP hoặc Úp Sọt, hãy ra ngoài mục Xã Hội và chọn người chơi nhé!*`;
 
       const btns1 = row(
-        btn(activePet ? `pet:view_pet:${activePet._id}` : 'pet:view_pet:none', '🐾 Thông Tin Pet', 'Success', !activePet),
-        btn('pet:gacha_1', `🥚 Ấp 1 Lần`, 'Primary', user.coins < GACHA_COST),
-        btn('pet:gacha_10', `🥚 Ấp 10 Lần`, 'Primary', user.coins < GACHA_COST * 10)
+        btn(activePet ? `pet:view_pet:${activePet._id}` : 'pet:view_pet:none', '🐾 Xem Thú Cưng', 'Success', !activePet),
+        btn('pet:gacha_menu', `🥚 Khu Ấp Trứng`, 'Primary'),
+        btn('pet:list:0:ALL', `🎒 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0)
       );
       const btns2 = row(
-        btn('pet:list:0:ALL', `🎒 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0),
+        btn('pet:tower', '🏰 Tháp Aincrad', 'Danger'),
         btn('pet:dex', '📖 Pokedex', 'Secondary')
       );
       const btns3 = row(
-        btn('pet:gear_shop', '🛡️ Shop Trang Bị', 'Primary'),
         btn('menu:home', '◀ Về Menu', 'Secondary')
       );
       
@@ -211,9 +210,31 @@ module.exports = {
       }
     }
 
+    // ── Menu Ấp Trứng ─────────────────────────────────────────────────────
+    if (action === 'gacha_menu') {
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      let desc = `> *Chào mừng đến với Trại Ấp Trứng!* 🥚\n\n`;
+      desc += `💰 **Xu hiện có:** ${user.coins.toLocaleString('vi-VN')} xu\n`;
+      desc += `🎯 **Pity:** Đảm bảo SSS (${user.gachaPitySSS || 0}/150) | SSS+ (${user.gachaPitySSSP || 0}/1500)\n`;
+      return interaction.update({
+        embeds: [bakeryEmbed('🥚 Khu Ấp Trứng', desc, COLORS.success)],
+        components: [
+          row(
+            btn('pet:gacha_1', `🥚 Ấp 1 Lần`, 'Primary', user.coins < GACHA_COST),
+            btn('pet:gacha_10', `🥚 Ấp 10 Lần`, 'Primary', user.coins < GACHA_COST * 10)
+          ),
+          row(btn('pet:open', '◀ Quay Lại Trại Thú', 'Secondary'))
+        ]
+      });
+    }
+
     // ── 2. Gacha (Ấp Trứng x1 và x10) ─────────────────────────────────────
     if (action === 'gacha_1' || action === 'gacha_10') {
-      await interaction.deferUpdate();
+      try {
+        await interaction.deferUpdate();
+      } catch (e) {
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
+      }
       const rolls = action === 'gacha_10' ? 10 : 1;
       const totalCost = GACHA_COST * rolls;
 
@@ -253,7 +274,7 @@ module.exports = {
 
       return interaction.editReply({
         embeds: [successEmbed(`🥚 Trứng Nở (${rolls} Lần)!`, `Bạn vừa ấp thành công ${rolls} trứng! Hạng cao nhất: **${highestRank}**\n\n` + results.join('  |  '))],
-        components: [row(btn(`pet:gacha_${rolls === 10 ? '10' : '1'}`, `🥚 Ấp Tiếp (${rolls} Lần)`, rolls === 10 ? 'Success' : 'Primary'), btn('pet:open', '🐾 Quay lại Trại Thú', 'Secondary'))]
+        components: [row(btn(`pet:gacha_${rolls === 10 ? '10' : '1'}`, `🥚 Ấp Tiếp (${rolls} Lần)`, rolls === 10 ? 'Success' : 'Primary'), btn('pet:gacha_menu', '◀ Quay Lại Khu Ấp', 'Secondary'))]
       });
     }
 
@@ -359,38 +380,181 @@ module.exports = {
       });
     }
     
-    // ── Cửa Hàng Kỹ Năng ────────────────────────────────────────────────
-    if (action === 'skill_shop') {
+    // ── Quản Lý Kỹ Năng ──────────────────────────────────────────────────
+    if (action === 'manage_skills_menu') {
+      const petId = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const pet = user.pets.find(p => p._id.toString() === petId);
+      if (!pet) return interaction.update({ embeds: [errorEmbed('Không tìm thấy thú cưng!')], components: [row(btn('pet:list:0:ALL', '◀ Quay Lại', 'Secondary'))] });
+
+      let skillsStr = (pet.skills && pet.skills.length > 0) 
+        ? pet.skills.map(s => `${SKILL_BOOKS[s]?.emoji || ''} ${SKILL_BOOKS[s]?.name || s}`).join('\n> ')
+        : '> *Chưa học kỹ năng nào*';
+
+      return interaction.update({
+        embeds: [bakeryEmbed('📜 Quản Lý Kỹ Năng', `**Thú cưng:** ${PETS[pet.petKey].emoji} ${pet.name}\n\n**Kỹ năng hiện tại:**\n${skillsStr}`, COLORS.primary)],
+        components: [
+          row(
+            btn(`pet:learn_skill_menu:${petId}`, '📖 Học Kỹ Năng (Từ Kho)', 'Primary'),
+            btn(`pet:forget_skill_menu:${petId}`, '❌ Quên Kỹ Năng', 'Danger', !pet.skills || pet.skills.length === 0)
+          ),
+          row(btn(`pet:view_pet:${petId}`, '◀ Quay Lại Pet', 'Secondary'))
+        ]
+      });
+    }
+
+    if (action === 'skill_shop_view' || action === 'skill_shop') {
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const options = Object.entries(SKILL_BOOKS).map(([k, s]) => {
         return { label: `${s.emoji} ${s.name}`, description: `${s.price.toLocaleString()} xu - ${s.desc}`, value: k };
       });
       return interaction.update({
-        embeds: [bakeryEmbed('📜 Cửa Hàng Kỹ Năng', '> *Mua sách kỹ năng để giúp thú cưng mạnh mẽ hơn trong chiến đấu!*\n\nChọn kỹ năng muốn mua bên dưới:', COLORS.gold)],
-        components: [row(selectMenu('pet:buy_skill', '🛒 Chọn kỹ năng muốn mua...', options)), row(btn('pet:open', '◀ Quay Lại', 'Secondary'))]
+        embeds: [bakeryEmbed('📜 Cửa Hàng Kỹ Năng', '> *Mua sách kỹ năng để giúp thú cưng mạnh mẽ hơn trong chiến đấu!*\n\n💰 **Xu của bạn:** ' + user.coins.toLocaleString('vi-VN') + ' xu\nChọn kỹ năng muốn mua bên dưới:', COLORS.gold)],
+        components: [
+           row(selectMenu('pet:buy_skill_do', '🛒 Chọn kỹ năng muốn mua...', options)), 
+           row(btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))
+        ]
       });
     }
 
-    if (action === 'buy_skill') {
-      const skillId = interaction.values[0];
+    if (action === 'buy_skill_do') {
+      const val = interaction.values[0];
+      const skillId = val.includes(':') ? val.split(':')[1] : val;
       const skillInfo = SKILL_BOOKS[skillId];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      const activePet = getActivePet(user);
 
-      if (!activePet) return interaction.reply({ embeds: [errorEmbed('Bạn chưa chọn thú cưng đồng hành để học kỹ năng!')], flags: MessageFlags.Ephemeral });
       if (user.coins < skillInfo.price) return interaction.reply({ embeds: [errorEmbed(`Bạn cần **${skillInfo.price.toLocaleString()} xu** để mua cuốn sách này!`)], flags: MessageFlags.Ephemeral });
-      if (activePet.skills && activePet.skills.includes(skillId)) return interaction.reply({ embeds: [errorEmbed(`Thú cưng **${activePet.name}** đã học kỹ năng này rồi!`)], flags: MessageFlags.Ephemeral });
 
       user.coins -= skillInfo.price;
-      const petIndex = user.pets.findIndex(p => p._id.toString() === activePet._id.toString());
-      if (!user.pets[petIndex].skills) user.pets[petIndex].skills = [];
-      user.pets[petIndex].skills.push(skillId);
-      user.markModified('pets');
+      if (!user.skillBooks) user.skillBooks = new Map();
+      user.skillBooks.set(skillId, (user.skillBooks.get(skillId) || 0) + 1);
       await user.save();
 
       return interaction.update({
-        embeds: [successEmbed('🎓 Học Thành Công!', `Thú cưng **${activePet.name}** đã học thành công **${skillInfo.emoji} ${skillInfo.name}**!\nKỹ năng này sẽ tự động kích hoạt ngẫu nhiên trong các trận đấu.`)],
-        components: [row(btn('pet:skill_shop', '🛒 Mua Tiếp', 'Primary'), btn('pet:open', '◀ Quay Lại Trại', 'Secondary'))]
+        embeds: [successEmbed('🛒 Mua Thành Công!', `Bạn đã mua **${skillInfo.emoji} ${skillInfo.name}** thành công!\nSách đã được cất vào Kho Sách Kỹ Năng.`)],
+        components: [
+          row(btn('pet:skill_shop', '🛒 Mua Tiếp', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))
+        ]
       });
+    }
+
+    // ── Menu Học Kỹ Năng Từ Kho ─────────────────────────────────────────
+    if (action === 'learn_skill_menu') {
+      const petId = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      
+      const options = [];
+      if (user.skillBooks) {
+         for (const [bookId, count] of user.skillBooks.entries()) {
+             if (count > 0 && SKILL_BOOKS[bookId]) {
+                 options.push({
+                     label: `${SKILL_BOOKS[bookId].emoji} ${SKILL_BOOKS[bookId].name} (Sẵn: ${count})`,
+                     description: SKILL_BOOKS[bookId].desc,
+                     value: `${petId}:${bookId}`
+                 });
+             }
+         }
+      }
+
+      if (options.length === 0) {
+         return interaction.update({
+            embeds: [errorEmbed('Bạn không có sẵn sách kỹ năng nào trong kho!\nHãy vào Shop Kỹ Năng ở khu Thương Mại để mua nhé.')],
+            components: [row(btn(`pet:view_pet:${petId}`, '◀ Quay Lại Pet', 'Secondary'))]
+         });
+      }
+
+      return interaction.update({
+        embeds: [bakeryEmbed('📜 Học Kỹ Năng', 'Chọn một cuốn sách kỹ năng từ kho để dạy cho Thú Cưng.', COLORS.primary)],
+        components: [
+          row(selectMenu('pet:learn_skill_do', '📜 Chọn kỹ năng...', options.slice(0, 25))),
+          row(btn(`pet:manage_skills_menu:${petId}`, '◀ Quay Lại', 'Secondary'))
+        ]
+      });
+    }
+
+    if (action === 'learn_skill_do') {
+      const [petId, skillId] = interaction.values[0].split(':');
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      
+      const count = user.skillBooks ? user.skillBooks.get(skillId) || 0 : 0;
+      if (count < 1) return interaction.reply({ embeds: [errorEmbed('Sách kỹ năng này không còn trong kho của bạn!')], flags: MessageFlags.Ephemeral });
+
+      const petIndex = user.pets.findIndex(p => p._id.toString() === petId);
+      if (petIndex === -1) return interaction.reply({ embeds: [errorEmbed('Không tìm thấy Pet!')], flags: MessageFlags.Ephemeral });
+
+      const pet = user.pets[petIndex];
+      if (!pet.skills) pet.skills = [];
+      
+      if (pet.skills.length >= 3) {
+        return interaction.reply({ embeds: [errorEmbed(`Thú cưng **${pet.name}** đã học tối đa 3 kỹ năng!\nHãy dùng chức năng "Quên Kỹ Năng" trước khi học mới.`)], flags: MessageFlags.Ephemeral });
+      }
+
+      if (pet.skills.includes(skillId)) {
+        return interaction.reply({ embeds: [errorEmbed(`Thú cưng **${pet.name}** đã học kỹ năng này rồi!`)], flags: MessageFlags.Ephemeral });
+      }
+
+      pet.skills.push(skillId);
+      user.skillBooks.set(skillId, count - 1);
+      user.markModified('pets');
+      await user.save();
+
+      interaction.customId = `pet:manage_gears_menu:${petId}`;
+      interaction.values = null;
+      return this.handleComponent(interaction);
+    }
+
+    // ── Menu Quên Kỹ Năng (Xóa Thường / Xóa An Toàn) ────────────────────
+    if (action === 'forget_skill_menu') {
+      const petId = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const pet = user.pets.find(p => p._id.toString() === petId);
+      if (!pet || !pet.skills || pet.skills.length === 0) return interaction.update({ embeds: [errorEmbed('Thú cưng chưa học kỹ năng nào!')], components: [row(btn(`pet:view_pet:${petId}`, '◀ Quay Lại', 'Secondary'))] });
+
+      const normalOptions = pet.skills.map(skillId => {
+          const s = SKILL_BOOKS[skillId] || { emoji: '❓', name: skillId };
+          return { label: `${s.emoji} ${s.name}`, description: `Xóa thường (5,000 xu) - Mất sách`, value: `normal:${petId}:${skillId}` };
+      });
+      
+      const safeOptions = pet.skills.map(skillId => {
+          const s = SKILL_BOOKS[skillId] || { emoji: '❓', name: skillId };
+          return { label: `[An Toàn] ${s.emoji} ${s.name}`, description: `Xóa an toàn (5 💎) - Trả lại sách`, value: `safe:${petId}:${skillId}` };
+      });
+
+      return interaction.update({
+          embeds: [bakeryEmbed('❌ Quên Kỹ Năng', 'Chọn phương thức xóa kỹ năng:\n\n🗑️ **Xóa Thường:** Mất **5,000 xu**, sách kỹ năng sẽ bị phá hủy.\n💎 **Xóa An Toàn:** Mất **5 Tinh Thể**, nhận lại sách kỹ năng vào kho.', COLORS.error)],
+          components: [
+              row(selectMenu('pet:forget_skill_do_1', '🗑️ Xóa Thường (Mất 5,000 xu)...', normalOptions)),
+              row(selectMenu('pet:forget_skill_do_2', '💎 Xóa An Toàn (Mất 5 💎)...', safeOptions)),
+              row(btn(`pet:manage_skills_menu:${petId}`, '◀ Quay Lại', 'Secondary'))
+          ]
+      });
+    }
+
+    if (action === 'forget_skill_do_1' || action === 'forget_skill_do_2') {
+      const [type, petId, skillId] = interaction.values[0].split(':');
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      
+      if (type === 'normal') {
+          if (user.coins < 5000) return interaction.reply({ embeds: [errorEmbed('Bạn không đủ **5,000 xu** để trả phí xóa kỹ năng!')], flags: MessageFlags.Ephemeral });
+          user.coins -= 5000;
+      } else if (type === 'safe') {
+          if ((user.crystals || 0) < 5) return interaction.reply({ embeds: [errorEmbed('Bạn không đủ **5 Tinh Thể (💎)** để xóa an toàn!')], flags: MessageFlags.Ephemeral });
+          user.crystals -= 5;
+          // Trả lại sách
+          if (!user.skillBooks) user.skillBooks = new Map();
+          user.skillBooks.set(skillId, (user.skillBooks.get(skillId) || 0) + 1);
+      }
+
+      const petIndex = user.pets.findIndex(p => p._id.toString() === petId);
+      if (petIndex === -1) return interaction.reply({ embeds: [errorEmbed('Không tìm thấy Pet!')], flags: MessageFlags.Ephemeral });
+
+      user.pets[petIndex].skills = user.pets[petIndex].skills.filter(s => s !== skillId);
+      user.markModified('pets');
+      await user.save();
+
+      interaction.customId = `pet:manage_gears_menu:${petId}`;
+      interaction.values = null;
+      return this.handleComponent(interaction);
     }
 
     // ── Tháp Aincrad (Boss SAO) ──────────────────────────────────────────
@@ -417,7 +581,11 @@ module.exports = {
     }
 
     if (action === 'tower_fight') {
-      await interaction.deferUpdate();
+      try {
+        await interaction.deferUpdate();
+      } catch (e) {
+        // Bỏ qua lỗi deferUpdate để tránh ngắt luồng
+      }
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const floor = user.towerFloor || 1;
       
@@ -440,11 +608,32 @@ module.exports = {
       
       if (result.isWin) {
         user.towerFloor = floor + 1;
-        user.crystals = (user.crystals || 0) + 1;
+        
+        const reward = getTowerReward(floor);
+        let rewardMsg = '';
+
+        if (reward.type === 'coins') {
+            user.coins += reward.amount;
+            rewardMsg = `💰 Nhận được **${reward.amount.toLocaleString()} xu**!`;
+        } else if (reward.type === 'crystal') {
+            user.crystals = (user.crystals || 0) + reward.amount;
+            rewardMsg = `💎 Nhận được **${reward.amount} Tinh Thể**!`;
+        } else if (reward.type === 'skill') {
+            const skillInfo = SKILL_BOOKS[reward.id];
+            if (!user.skillBooks) user.skillBooks = new Map();
+            user.skillBooks.set(reward.id, (user.skillBooks.get(reward.id) || 0) + 1);
+            rewardMsg = `📜 Nhận Sách Kỹ Năng: **${skillInfo.emoji} ${skillInfo.name}**!`;
+        } else if (reward.type === 'gear') {
+            const gearInfo = GEARS[reward.id];
+            if (!user.gears) user.gears = new Map();
+            user.gears.set(reward.id, (user.gears.get(reward.id) || 0) + 1);
+            rewardMsg = `🛡️ Nhận Trang Bị: **${gearInfo.emoji} ${gearInfo.name}**!`;
+        }
+
         await user.save();
-        msg += `🎉 **CHIẾN THẮNG!** Bạn đã vượt qua tầng ${floor} và nhận được **1 Tinh Thể (💎)**!`;
+        msg += `🎉 **CHIẾN THẮNG!** Bạn đã vượt qua Tầng ${floor}!\n🎁 **Phần Thưởng:** ${rewardMsg}`;
       } else {
-        msg += `💀 **THẤT BẠI!** Thú cưng của bạn đã kiệt sức. Hãy nâng cấp sức mạnh và thử lại!`;
+        msg += `💀 **THẤT BẠI!** Thú cưng của bạn đã kiệt sức. Lần sau hãy phục thù nhé!`;
       }
 
       return interaction.editReply({
@@ -587,8 +776,36 @@ module.exports = {
       return this.handleComponent(interaction);
     }
 
-    // ── Mua Bán Trang Bị ──────────────────────────────────────────────────
-    if (action === 'gear_shop') {
+    // ── Quản Lý Trang Bị ──────────────────────────────────────────────────
+    if (action === 'manage_gears_menu') {
+      const petId = parts[2];
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const pet = user.pets.find(p => p._id.toString() === petId);
+      if (!pet) return interaction.update({ embeds: [errorEmbed('Không tìm thấy thú cưng!')], components: [row(btn('pet:list:0:ALL', '◀ Quay Lại', 'Secondary'))] });
+
+      const eq = pet.equipment || {};
+      const eqWeapon = eq.weapon ? GEARS[eq.weapon].name : 'Trống';
+      const eqHead   = eq.head ? GEARS[eq.head].name : 'Trống';
+      const eqArmor  = eq.armor ? GEARS[eq.armor].name : 'Trống';
+      const eqAcc    = eq.accessory ? GEARS[eq.accessory].name : 'Trống';
+
+      let desc = `**Thú cưng:** ${PETS[pet.petKey].emoji} ${pet.name}\n\n`;
+      desc += `🛡️ **Trang Bị Hiện Tại:**\n`;
+      desc += `> 🗡️ Vũ khí: ${eqWeapon}\n> 🪖 Mũ: ${eqHead}\n> 🥋 Giáp: ${eqArmor}\n> 💍 Phụ kiện: ${eqAcc}`;
+
+      return interaction.update({
+        embeds: [bakeryEmbed('🎒 Quản Lý Trang Bị', desc, COLORS.primary)],
+        components: [
+          row(
+            btn(`pet:equip_menu:${petId}`, '🎒 Mặc Trang Bị (Từ Kho)', 'Primary'),
+            btn(`pet:unequip_all:${petId}`, '🔓 Tháo Hết Đồ', 'Danger')
+          ),
+          row(btn(`pet:view_pet:${petId}`, '◀ Quay Lại Pet', 'Secondary'))
+        ]
+      });
+    }
+
+    if (action === 'gear_shop_view' || action === 'gear_shop') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const buyOptions = Object.entries(GEARS).map(([k, g]) => ({
         label: `${g.emoji} ${g.name}`,
@@ -610,12 +827,12 @@ module.exports = {
       }
 
       const comps = [
-        row(selectMenu('pet:buy_gear', '🛒 Chọn trang bị muốn MUA (10,000 xu)...', buyOptions.slice(0, 25)))
+        row(selectMenu('pet:buy_gear_do', '🛒 Chọn trang bị muốn MUA (10,000 xu)...', buyOptions.slice(0, 25)))
       ];
       if (sellOptions.length > 0) {
-        comps.push(row(selectMenu('pet:sell_gear', '💰 Chọn trang bị muốn BÁN (5,000 xu)...', sellOptions.slice(0, 25))));
+        comps.push(row(selectMenu('pet:sell_gear_do', '💰 Chọn trang bị muốn BÁN (5,000 xu)...', sellOptions.slice(0, 25))));
       }
-      comps.push(row(btn('pet:open', '◀ Quay Lại Trại Thú', 'Secondary')));
+      comps.push(row(btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary')));
 
       return interaction.update({
         embeds: [bakeryEmbed('🛡️ Cửa Hàng Trang Bị', '> *Mua sắm trang bị cho Thú Cưng để kích hoạt Hiệu ứng Bộ vô cùng mạnh mẽ! Mặc đủ 2 món và 4 món cùng bộ sẽ nhận thêm buff khủng!*\n\n💰 **Xu của bạn:** ' + user.coins.toLocaleString('vi-VN'), COLORS.gold)],
@@ -623,8 +840,9 @@ module.exports = {
       });
     }
 
-    if (action === 'buy_gear') {
-      const gearId = interaction.values[0];
+    if (action === 'buy_gear_do') {
+      const val = interaction.values[0];
+      const gearId = val.includes(':') ? val.split(':')[1] : val;
       const gear = GEARS[gearId];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
 
@@ -637,12 +855,13 @@ module.exports = {
 
       return interaction.update({
         embeds: [successEmbed('🛒 Mua Thành Công!', `Bạn đã mua **${gear.emoji} ${gear.name}** thành công!\nĐã lưu vào Kho Trang Bị.`)],
-        components: [row(btn('pet:gear_shop', '🛒 Tiếp Tục Mua Bán', 'Primary'), btn('pet:open', '◀ Quay Lại', 'Secondary'))]
+        components: [row(btn('pet:gear_shop', '🛒 Tiếp Tục Mua Bán', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))]
       });
     }
 
-    if (action === 'sell_gear') {
-      const gearId = interaction.values[0];
+    if (action === 'sell_gear_do') {
+      const val = interaction.values[0];
+      const gearId = val.includes(':') ? val.split(':')[1] : val;
       const gear = GEARS[gearId];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
 
@@ -656,7 +875,7 @@ module.exports = {
 
       return interaction.update({
         embeds: [successEmbed('💰 Bán Thành Công!', `Bạn đã bán **${gear.emoji} ${gear.name}** và thu về **${sellPrice.toLocaleString()} xu**!`)],
-        components: [row(btn('pet:gear_shop', '🛒 Tiếp Tục Mua Bán', 'Primary'), btn('pet:open', '◀ Quay Lại', 'Secondary'))]
+        components: [row(btn('pet:gear_shop', '🛒 Tiếp Tục Mua Bán', 'Primary'), btn('menu:section:trade', '◀ Về Thương Mại', 'Secondary'))]
       });
     }
 
@@ -689,7 +908,7 @@ module.exports = {
         embeds: [bakeryEmbed('🎒 Mặc Trang Bị', 'Chọn một trang bị từ kho để khoác lên thú cưng.\nNếu vị trí đã có đồ, món cũ sẽ tự động được cất lại vào kho.', COLORS.primary)],
         components: [
           row(selectMenu('pet:equip_do', '🎒 Chọn trang bị...', equipOptions.slice(0, 25))),
-          row(btn(`pet:view_pet:${petId}`, '◀ Quay Lại', 'Secondary'))
+          row(btn(`pet:manage_gears_menu:${petId}`, '◀ Quay Lại', 'Secondary'))
         ]
       });
     }
@@ -722,7 +941,7 @@ module.exports = {
       user.markModified('pets');
       await user.save();
 
-      interaction.customId = `pet:view_pet:${petId}`;
+      interaction.customId = `pet:manage_skills_menu:${petId}`;
       interaction.values = null;
       return this.handleComponent(interaction);
     }
@@ -755,7 +974,7 @@ module.exports = {
       user.markModified('pets');
       await user.save();
 
-      interaction.customId = `pet:view_pet:${petId}`;
+      interaction.customId = `pet:manage_skills_menu:${petId}`;
       interaction.values = null;
       return this.handleComponent(interaction);
     }
@@ -890,10 +1109,15 @@ module.exports = {
 
       if (!options.length) return interaction.update({ embeds: [errorEmbed('Bạn không có bánh nào để cho Pet ăn! Hãy đi nướng thêm nhé.')], components: [row(btn('pet:open', '◀ Quay Lại', 'Secondary'))] });
       
-      return interaction.update({
-        embeds: [bakeryEmbed('🧁 Cường Hóa Thú Cưng', 'Chọn bánh để cho ăn. Bánh Thượng Hạng sẽ giúp thú cưng **Đột Phá Sao (🌟)**!', COLORS.warning)],
-        components: [row(selectMenu('pet:feed_qty', '🧁 Chọn bánh để cho ăn...', options.slice(0, 25))), row(btn('pet:open', '◀ Quay Lại', 'Secondary'))]
-      });
+      try {
+        return await interaction.update({
+          embeds: [bakeryEmbed('🧁 Cường Hóa Thú Cưng', 'Chọn bánh để cho ăn. Bánh Thượng Hạng sẽ giúp thú cưng **Đột Phá Sao (🌟)**!', COLORS.warning)],
+          components: [row(selectMenu('pet:feed_qty', '🧁 Chọn bánh để cho ăn...', options.slice(0, 25))), row(btn('pet:open', '◀ Quay Lại', 'Secondary'))]
+        });
+      } catch (e) {
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
+        throw e;
+      }
     }
 
     if (action === 'feed_qty') {
@@ -907,10 +1131,15 @@ module.exports = {
       const btns = [1, 5, 10].filter(q => q <= maxQty).map(q => btn(`pet:feed_do:${itemKey}:${q}`, `×${q}`, 'Primary'));
       if (maxQty > 0 && ![1, 5, 10].includes(maxQty)) btns.push(btn(`pet:feed_do:${itemKey}:${maxQty}`, `×${maxQty} Max`, 'Success'));
       
-      return interaction.update({
-         embeds: [bakeryEmbed('🧁 Chọn Số Lượng Bánh', `Bạn đang có **${maxQty}** ${info.emoji} **${info.name}**.\nChọn số lượng muốn cho thú cưng ăn:`, COLORS.warning)],
-         components: [row(...btns), row(btn('pet:feed_menu', '◀ Quay Lại', 'Secondary'))]
-      });
+      try {
+        return await interaction.update({
+           embeds: [bakeryEmbed('🧁 Chọn Số Lượng Bánh', `Bạn đang có **${maxQty}** ${info.emoji} **${info.name}**.\nChọn số lượng muốn cho thú cưng ăn:`, COLORS.warning)],
+           components: [row(...btns), row(btn('pet:feed_menu', '◀ Quay Lại', 'Secondary'))]
+        });
+      } catch (e) {
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
+        throw e;
+      }
     }
 
     // ── 4. Thực Hiện Cho Ăn ───────────────────────────────────────────────
@@ -981,20 +1210,18 @@ module.exports = {
   }
 };
 
-// Engine Mô phỏng trận đấu Thú Cưng (Turn-based)
-module.exports.petBattleEngine = async function(interaction, attackerUser, victimUser, mode, betAmount = 0) {
+/** Engine Mô phỏng trận đấu Thú Cưng (Turn-based) */
+async function petBattleEngine(interaction, attackerUser, victimUser, mode, betAmount = 0) {
   const aPet = getActivePet(attackerUser);
   const vPet = getActivePet(victimUser);
   
   if (!aPet || !vPet) return { error: 'Một trong hai người chưa trang bị Thú Cưng!\nVào **Trại Thú Cưng** để ấp trứng trước.' };
 
-  // Kiểm tra cược xu
   if (mode === 'bet') {
     if (attackerUser.coins < betAmount) return { error: `Bạn không đủ **${betAmount.toLocaleString()} xu** để cược!` };
     if (victimUser.coins < betAmount) return { error: `Đối thủ quá nghèo, không đủ **${betAmount.toLocaleString()} xu** để cược với bạn!` };
   }
 
-  // Kiểm tra giới hạn thách đấu (3 lần / 1 tiếng)
   if (mode === 'force' || mode === 'bet') {
     const now = Date.now();
     if (attackerUser.pvpTime && (now - new Date(attackerUser.pvpTime).getTime()) < 3600000) {
@@ -1014,9 +1241,8 @@ module.exports.petBattleEngine = async function(interaction, attackerUser, victi
 
   let log = [];
   let turn = 0;
-  let isA_Turn = aStats.spd >= vStats.spd; // Tốc độ cao đánh trước
+  let isA_Turn = aStats.spd >= vStats.spd;
 
-  // Vòng lặp trận đấu (Tối đa 10 hiệp để tránh spam text)
   while(aHp > 0 && vHp > 0 && turn < 10) {
     turn++;
     let atkStats = isA_Turn ? aStats : vStats;
@@ -1029,7 +1255,6 @@ module.exports.petBattleEngine = async function(interaction, attackerUser, victi
     let r = Math.random();
     const rank = atkPet.petKey === 'dark_dragon' && mode === 'tower' ? 'SSS' : PETS[atkPet.petKey]?.rank || 'B';
 
-    // Check Custom Skills (35% chance to cast)
     let usedCustomSkill = false;
     if (atkPet.skills && atkPet.skills.length > 0 && r < 0.35) {
       const skillId = atkPet.skills[Math.floor(Math.random() * atkPet.skills.length)];
@@ -1044,18 +1269,16 @@ module.exports.petBattleEngine = async function(interaction, attackerUser, victi
     }
 
     if (!usedCustomSkill) {
-      // Kỹ năng theo phẩm chất
       if (['S', 'SS', 'SSS'].includes(rank) && r < 0.20) {
           skillName = "✨ Tuyệt Kỹ Tối Thượng";
-          damage = atkStats.atk * 2.5; // Bỏ qua giáp
-          if (rank === 'SSS') heal = atkStats.hp * 0.5; // Hồi máu
+          damage = atkStats.atk * 2.5;
+          if (rank === 'SSS') heal = atkStats.hp * 0.5;
       } else if (r < 0.40) {
           skillName = "💥 Đòn Đặc Trưng";
           damage = Math.max(5, atkStats.atk * 1.5 - defStats.def * 0.3);
       }
     }
 
-    // Biến thiên sát thương +-10%
     damage = Math.floor(damage * (0.9 + Math.random() * 0.2));
     
     if (isA_Turn) vHp -= damage; else aHp -= damage;
@@ -1073,36 +1296,40 @@ module.exports.petBattleEngine = async function(interaction, attackerUser, victi
   const isWin = aHp > vHp;
   let resultMsg = "";
 
-  // Update PVP count
   if (mode === 'bet' || mode === 'force') {
      attackerUser.pvpCount += 1;
      await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $set: { pvpCount: attackerUser.pvpCount, pvpTime: attackerUser.pvpTime }});
   }
 
-  // Trả thưởng
   if (mode === 'bet') {
      if (isWin) {
         await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { coins: betAmount } });
-        await User.updateOne({ userId: victimUser.userId, guildId: victimUser.guildId }, { $inc: { coins: -betAmount } });
-        resultMsg = `🎉 Thắng cược! Nhận được **${betAmount.toLocaleString()} xu** từ đối thủ!`;
+        await User.updateOne({ userId: victimUser.userId, guildId: victimUser.guildId }, { $inc: { coins: -betAmount, hp: -10 } });
+        resultMsg = `🎉 Thắng cược! Nhận được **${betAmount.toLocaleString()} xu** từ đối thủ!\n💔 Đối thủ bị thương, mất **10 HP** thể lực.`;
      } else {
-        await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { coins: -betAmount } });
+        await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { coins: -betAmount, hp: -10 } });
         await User.updateOne({ userId: victimUser.userId, guildId: victimUser.guildId }, { $inc: { coins: betAmount } });
-        resultMsg = `💀 Thua cược! Mất trắng **${betAmount.toLocaleString()} xu** vào tay đối thủ!`;
+        resultMsg = `💀 Thua cược! Mất trắng **${betAmount.toLocaleString()} xu** vào tay đối thủ!\n💔 Bạn bị thương, mất **10 HP** thể lực.`;
      }
   } else if (mode === 'force') {
      if (isWin) {
-        const stolen = Math.floor(victimUser.coins * (0.01 + Math.random() * 0.04)); // Cướp 1-5%
+        const stolen = Math.floor(victimUser.coins * (0.01 + Math.random() * 0.04));
         await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { coins: stolen } });
-        await User.updateOne({ userId: victimUser.userId, guildId: victimUser.guildId }, { $inc: { coins: -stolen } });
-        resultMsg = `🏴‍☠️ Úp sọt thành công! Cướp được **${stolen.toLocaleString()} xu**!`;
+        await User.updateOne({ userId: victimUser.userId, guildId: victimUser.guildId }, { $inc: { coins: -stolen, hp: -10 } });
+        resultMsg = `🏴‍☠️ Úp sọt thành công! Cướp được **${stolen.toLocaleString()} xu**!\n💔 Đối thủ bị thương, mất **10 HP** thể lực.`;
      } else {
-        const penalty = Math.floor(attackerUser.coins * 0.05); // Phạt 5%
-        await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { coins: -penalty } });
+        const penalty = Math.floor(attackerUser.coins * 0.05);
+        await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { coins: -penalty, hp: -10 } });
         await User.updateOne({ userId: victimUser.userId, guildId: victimUser.guildId }, { $inc: { coins: penalty } });
-        resultMsg = `🚑 Bị phản đam! Phải đền bù thuốc men **${penalty.toLocaleString()} xu** cho nạn nhân!`;
+        resultMsg = `🚑 Bị phản đam! Phải đền bù thuốc men **${penalty.toLocaleString()} xu** cho nạn nhân!\n💔 Bạn bị thương, mất **10 HP** thể lực.`;
+     }
+  } else if (mode === 'tower') {
+     if (!isWin) {
+        await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $inc: { hp: -10 } });
      }
   }
 
   return { isWin, log, resultMsg, aPet, vPet, aHp: Math.max(0, aHp), vHp: Math.max(0, vHp), aMaxHp, vMaxHp };
-};
+}
+
+module.exports.petBattleEngine = petBattleEngine;
