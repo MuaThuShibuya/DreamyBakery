@@ -164,6 +164,7 @@ module.exports = {
   async handleComponent(interaction) {
     const parts = interaction.customId.split(':');
     const action = parts[1];
+    const { calcLevel } = require('../../utils/gameUtils');
 
     // ── 1. Mở Trại Thú Cưng ───────────────────────────────────────────────
     if (action === 'open') {
@@ -384,6 +385,7 @@ module.exports = {
     if (action === 'manage_skills_menu') {
       const petId = parts[2];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (calcLevel(user.exp) < 2) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 2** để mở khóa Kỹ Năng!')], flags: MessageFlags.Ephemeral });
       const pet = user.pets.find(p => p._id.toString() === petId);
       if (!pet) return interaction.update({ embeds: [errorEmbed('Không tìm thấy thú cưng!')], components: [row(btn('pet:list:0:ALL', '◀ Quay Lại', 'Secondary'))] });
 
@@ -405,6 +407,7 @@ module.exports = {
 
     if (action === 'skill_shop_view' || action === 'skill_shop') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (calcLevel(user.exp) < 2) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 2** để mở khóa Kỹ Năng!')], flags: MessageFlags.Ephemeral });
       const options = Object.entries(SKILL_BOOKS).map(([k, s]) => {
         return { label: `${s.emoji} ${s.name}`, description: `${s.price.toLocaleString()} xu - ${s.desc}`, value: k };
       });
@@ -428,6 +431,7 @@ module.exports = {
       user.coins -= skillInfo.price;
       if (!user.skillBooks) user.skillBooks = new Map();
       user.skillBooks.set(skillId, (user.skillBooks.get(skillId) || 0) + 1);
+      user.markModified('skillBooks');
       await user.save();
 
       return interaction.update({
@@ -485,8 +489,8 @@ module.exports = {
       const pet = user.pets[petIndex];
       if (!pet.skills) pet.skills = [];
       
-      if (pet.skills.length >= 3) {
-        return interaction.reply({ embeds: [errorEmbed(`Thú cưng **${pet.name}** đã học tối đa 3 kỹ năng!\nHãy dùng chức năng "Quên Kỹ Năng" trước khi học mới.`)], flags: MessageFlags.Ephemeral });
+      if (pet.skills.length >= 5) {
+        return interaction.reply({ embeds: [errorEmbed(`Thú cưng **${pet.name}** đã học tối đa 5 kỹ năng!\nHãy dùng chức năng "Quên Kỹ Năng" trước khi học mới.`)], flags: MessageFlags.Ephemeral });
       }
 
       if (pet.skills.includes(skillId)) {
@@ -495,6 +499,7 @@ module.exports = {
 
       pet.skills.push(skillId);
       user.skillBooks.set(skillId, count - 1);
+      user.markModified('skillBooks');
       user.markModified('pets');
       await user.save();
 
@@ -543,6 +548,7 @@ module.exports = {
           // Trả lại sách
           if (!user.skillBooks) user.skillBooks = new Map();
           user.skillBooks.set(skillId, (user.skillBooks.get(skillId) || 0) + 1);
+          user.markModified('skillBooks');
       }
 
       const petIndex = user.pets.findIndex(p => p._id.toString() === petId);
@@ -558,12 +564,19 @@ module.exports = {
     }
 
     // ── Tháp Aincrad (Boss SAO) ──────────────────────────────────────────
-    if (action === 'tower') {
+    if (action === 'tower' || action === 'tower_select') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      const floor = user.towerFloor || 1;
+      if (calcLevel(user.exp) < 4) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 4** để khiêu chiến Tháp Aincrad!')], flags: MessageFlags.Ephemeral });
+      const maxFloor = user.towerFloor || 1;
+      const floor = action === 'tower_select' ? parseInt(interaction.values[0]) : maxFloor;
       const bossHp = 500 + floor * 250;
       const bossAtk = 50 + floor * 30;
       
+      const floorOptions = [];
+      for (let i = Math.max(1, maxFloor - 24); i <= maxFloor; i++) {
+          floorOptions.push({ label: `Tầng ${i}`, value: i.toString(), default: i === floor });
+      }
+
       const desc = [
         `🏰 **THÁP AINCRAD — TẦNG ${floor}**`,
         `> *Mỗi tầng đều có những hộ vệ mạnh mẽ. Đánh bại chúng để thăng tiến và nhận Tinh Thể!*`,
@@ -576,7 +589,10 @@ module.exports = {
 
       return interaction.update({
         embeds: [bakeryEmbed(`🏰 Tháp Aincrad`, desc, COLORS.danger)],
-        components: [row(btn('pet:tower_fight', '⚔️ Vào Đánh', 'Danger'), btn('menu:home', '◀ Về Menu', 'Secondary'))]
+        components: [
+          row(selectMenu('pet:tower_select', '🏰 Chọn Tầng để khiêu chiến...', floorOptions)),
+          row(btn(`pet:tower_fight:${floor}`, '⚔️ Vào Đánh', 'Danger'), btn('menu:home', '◀ Về Menu', 'Secondary'))
+        ]
       });
     }
 
@@ -587,7 +603,7 @@ module.exports = {
         // Bỏ qua lỗi deferUpdate để tránh ngắt luồng
       }
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
-      const floor = user.towerFloor || 1;
+      const floor = parseInt(parts[2]) || (user.towerFloor || 1);
       
       const bossUser = {
         userId: 'boss', guildId: interaction.guildId, username: `Hộ Vệ Tầng ${floor}`,
@@ -607,7 +623,9 @@ module.exports = {
       msg += `❤️ **${result.aPet.name}:** ${Math.floor(result.aHp)}/${result.aMaxHp} HP  |  ❤️ **Boss:** ${Math.floor(result.vHp)}/${result.vMaxHp} HP\n\n`;
       
       if (result.isWin) {
-        user.towerFloor = floor + 1;
+        if (floor === (user.towerFloor || 1)) {
+            user.towerFloor = floor + 1;
+        }
         
         const reward = getTowerReward(floor);
         let rewardMsg = '';
@@ -622,11 +640,13 @@ module.exports = {
             const skillInfo = SKILL_BOOKS[reward.id];
             if (!user.skillBooks) user.skillBooks = new Map();
             user.skillBooks.set(reward.id, (user.skillBooks.get(reward.id) || 0) + 1);
+            user.markModified('skillBooks');
             rewardMsg = `📜 Nhận Sách Kỹ Năng: **${skillInfo.emoji} ${skillInfo.name}**!`;
         } else if (reward.type === 'gear') {
             const gearInfo = GEARS[reward.id];
             if (!user.gears) user.gears = new Map();
             user.gears.set(reward.id, (user.gears.get(reward.id) || 0) + 1);
+            user.markModified('gears');
             rewardMsg = `🛡️ Nhận Trang Bị: **${gearInfo.emoji} ${gearInfo.name}**!`;
         }
 
@@ -724,7 +744,7 @@ module.exports = {
             row(
               btn(`pet:select:${petId}`, '🌟 Đồng Hành', 'Success', isActive),
               btn('pet:feed_menu', '🧁 Cường Hóa', 'Primary', !isActive),
-              btn('pet:skill_shop', '📜 Học Kỹ Năng', 'Primary', !isActive),
+          btn(`pet:manage_skills_menu:${petId}`, '📜 Học Kỹ Năng', 'Primary', !isActive),
               btn(`pet:equip_menu:${petId}`, '🎒 Mặc Trang Bị', 'Primary')
             ),
             row(
@@ -748,6 +768,7 @@ module.exports = {
     if (action === 'roll_trait') {
       const petId = parts[2];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (calcLevel(user.exp) < 5) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 5** để mở khóa Đổi Đặc Tính!')], flags: MessageFlags.Ephemeral });
       if ((user.crystals || 0) < 1) {
         return interaction.reply({ embeds: [errorEmbed('Bạn không có đủ Tinh Thể (💎)! Hãy đánh Boss để nhận.')], flags: MessageFlags.Ephemeral });
       }
@@ -780,6 +801,7 @@ module.exports = {
     if (action === 'manage_gears_menu') {
       const petId = parts[2];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (calcLevel(user.exp) < 3) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 3** để mở khóa Trang Bị!')], flags: MessageFlags.Ephemeral });
       const pet = user.pets.find(p => p._id.toString() === petId);
       if (!pet) return interaction.update({ embeds: [errorEmbed('Không tìm thấy thú cưng!')], components: [row(btn('pet:list:0:ALL', '◀ Quay Lại', 'Secondary'))] });
 
@@ -807,6 +829,7 @@ module.exports = {
 
     if (action === 'gear_shop_view' || action === 'gear_shop') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (calcLevel(user.exp) < 3) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 3** để mở khóa Trang Bị!')], flags: MessageFlags.Ephemeral });
       const buyOptions = Object.entries(GEARS).map(([k, g]) => ({
         label: `${g.emoji} ${g.name}`,
         description: `[Bộ ${GEAR_SETS[g.set].name}] - ${g.price.toLocaleString()} xu`,
@@ -851,6 +874,7 @@ module.exports = {
       user.coins -= gear.price;
       if (!user.gears) user.gears = new Map();
       user.gears.set(gearId, (user.gears.get(gearId) || 0) + 1);
+      user.markModified('gears');
       await user.save();
 
       return interaction.update({
@@ -871,6 +895,7 @@ module.exports = {
       const sellPrice = Math.floor(gear.price / 2);
       user.coins += sellPrice;
       user.gears.set(gearId, count - 1);
+      user.markModified('gears');
       await user.save();
 
       return interaction.update({
@@ -883,6 +908,7 @@ module.exports = {
     if (action === 'equip_menu') {
       const petId = parts[2];
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (calcLevel(user.exp) < 3) return interaction.reply({ embeds: [errorEmbed('🔒 Bạn cần đạt **Cấp 3** để mở khóa Trang Bị!')], flags: MessageFlags.Ephemeral });
 
       const equipOptions = [];
       if (user.gears) {
@@ -936,6 +962,7 @@ module.exports = {
 
       pet.equipment[slot] = gearId;
       user.gears.set(gearId, count - 1);
+      user.markModified('gears');
 
       updateHighestBP(user);
       user.markModified('pets');
@@ -970,6 +997,7 @@ module.exports = {
 
       if (!unequipped) return interaction.reply({ embeds: [errorEmbed('Pet này chưa mặc gì cả!')], flags: MessageFlags.Ephemeral });
 
+      user.markModified('gears');
       updateHighestBP(user);
       user.markModified('pets');
       await user.save();
@@ -1180,19 +1208,26 @@ module.exports = {
 
       // Đột phá Phẩm Chất Sao (Tăng chỉ số cực lớn nếu ăn bánh shiny)
       if (isShiny) {
-        activePet.stars = (activePet.stars || 0) + qty;
-        let addedHp = 0, addedAtk = 0;
-        for (let i=0; i<qty; i++) {
-           const curStar = activePet.stars - qty + 1 + i;
-           const sBonus = curStar * 2;
-           addedHp += 50 * sBonus;
-           addedAtk += 10 * sBonus;
+        const currentStars = activePet.stars || 0;
+        const starsToGain = Math.min(qty, 5 - currentStars);
+
+        if (starsToGain > 0) {
+          activePet.stars = currentStars + starsToGain;
+          let addedHp = 0, addedAtk = 0;
+          for (let i = 0; i < starsToGain; i++) {
+             const curStar = currentStars + 1 + i;
+             const sBonus = curStar * 2;
+             addedHp += 50 * sBonus;
+             addedAtk += 10 * sBonus;
+          }
+          activePet.stats.hp += addedHp;
+          activePet.stats.atk += addedAtk;
+          activePet.stats.def += addedAtk;
+          activePet.stats.spd += addedAtk;
+          msg += `\n\n✨ **ĐỘT PHÁ PHẨM CHẤT!** Thú cưng đạt **${activePet.stars} Sao 🌟**! Các chỉ số gốc tăng mạnh vĩnh viễn!`;
+        } else {
+          msg += `\n\n✨ *(Thú cưng đã đạt tối đa 5 Sao nên không thể đột phá thêm, nhưng vẫn nhận được EXP!)*`;
         }
-        activePet.stats.hp += addedHp;
-        activePet.stats.atk += addedAtk;
-        activePet.stats.def += addedAtk;
-        activePet.stats.spd += addedAtk;
-        msg += `\n\n✨ **ĐỘT PHÁ PHẨM CHẤT!** Thú cưng đạt **${activePet.stars} Sao 🌟**! Các chỉ số gốc tăng mạnh vĩnh viễn!`;
       }
 
       // Phải chỉ định cho Mongoose biết array subdocument đã bị thay đổi

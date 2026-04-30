@@ -96,6 +96,9 @@ async function processSneak(interaction, target, isUpdate = false) {
       victim.markModified('inventory');
       thief.inventory[stealKey] = (thief.inventory[stealKey] || 0) + actualAmt;
       thief.markModified('inventory');
+
+      const expGained = randomInt(10, 20);
+      thief.exp += expGained;
       await Promise.all([thief.save(), victim.save()]);
 
       embed = bakeryEmbed(
@@ -105,6 +108,7 @@ async function processSneak(interaction, target, isUpdate = false) {
             `> *Bước chân nhẹ nhàng, tay lấy nhanh!* ✨`,
             '',
             `**Trộm được: ${info.emoji} ${info.name} × ${actualAmt}**`,
+            `⭐ **Kinh nghiệm**: +${expGained} EXP`,
             '',
             `⏰ Hồi chiêu: \`${formatMs(COOLDOWNS.sneak)}\``,
           ].join('\n'),

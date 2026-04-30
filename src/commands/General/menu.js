@@ -71,7 +71,7 @@ function buildMenu(user, member, role, category = 'home') {
         `╭───────── **TỔNG QUAN** ─────────╮`,
         ` 💰 **Tài sản:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
         ` ⭐ **Cấp ${lvl}:** \`[${progressBar(pct, 12)}]\` ${pct}%`,
-        ` ❤️ **Thể lực:** ${Math.floor(user.hp)} / 100`,
+        ` ❤️ **Thể lực:** ${Math.floor(user.hp)} / 100 *(+1 HP/3p)*`,
         `╰────────────────────────────────╯`,
         ``,
         `🔽 *Sử dụng Menu thả xuống bên dưới để thao tác*`,
@@ -156,7 +156,7 @@ function buildMenu(user, member, role, category = 'home') {
   }
   else if (category === 'bank') {
     embed = bakeryEmbed('💳 Ngân Hàng', `Quản lý tài chính, chuyển khoản và vay nợ.`, COLORS.success);
-    btnRows.push(row(btn('chuyentien:open', '💸 Chuyển Khoản', 'Primary'), btn('vay:open', '💳 Ngân Hàng', 'Secondary')));
+    btnRows.push(row(btn('menu:vay:open', '💳 Tự Động Vay / Trả', 'Primary')));
   }
   else if (category === 'social') {
     embed = bakeryEmbed('🎮 Xã Hội & Giải Trí', `Tương tác với bạn bè, Thách đấu và Cạnh tranh thứ hạng.\n\n🔽 *Chọn một người chơi bên dưới để thao tác:*`, COLORS.warning);
@@ -401,8 +401,8 @@ module.exports = {
         embeds: [embed],
         components: [
           row(navMenu),
-          row(btn(`menu:battle_bet:${targetId}`, '⚔️ Thách Đấu (Cược)', 'Primary'), btn(`menu:battle_force:${targetId}`, '🏴‍☠️ Úp Sọt (Cướp)', 'Danger')),
-          row(btn(`sneak:do:${targetId}`, '🐾 Trộm Vườn', 'Secondary'), btn(`chuyentien:open:${targetId}`, '💸 Chuyển Tiền', 'Success')),
+        row(btn(`menu:battle_bet:${targetId}`, '⚔️ Thách Đấu (Cược)', 'Primary'), btn(`menu:battle_force:${targetId}`, '🏴‍☠️ Úp Sọt (Cướp)', 'Danger')),
+        row(btn(`sneak:do:${targetId}`, '🐾 Trộm Vườn', 'Secondary'), btn(`menu:gift:open:${targetId}`, '🎁 Tặng Đồ', 'Success')),
           row(btn('menu:section:social', '◀ Quay Lại Xã Hội', 'Secondary'), btn('menu:close', '❌ Đóng', 'Danger')),
         ],
       });
@@ -453,6 +453,71 @@ module.exports = {
         embeds: [bakeryEmbed('🏴‍☠️ Úp Sọt Kẻ Thù', msg, result.isWin ? COLORS.success : COLORS.error)],
         components: [backRow],
       });
+    }
+
+    // ── Ngân Hàng Tự Động ──────────────────────────────────────────────────
+    if (action === 'vay') {
+        const sub = parts[2];
+        if (sub === 'open') {
+            const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+            const embed = bakeryEmbed('💳 Ngân Hàng Mộng Mơ', `💰 Số dư hiện tại: **${user.coins.toLocaleString('vi-VN')} xu**\n📉 Dư nợ: **${(user.debt || 0).toLocaleString('vi-VN')} xu**\n\nNgân hàng hỗ trợ tự động **Vay 50,000 xu** (lãi suất 10%).\nKhi thanh toán nợ, nếu không đủ số dư, tài khoản của bạn sẽ bị **âm tiền**!`, COLORS.success);
+            return interaction.update({
+                embeds: [embed],
+                components: [
+                    row(btn('menu:vay:loan', '💵 Vay 50,000 xu', 'Primary'), btn('menu:vay:repay', '💸 Trả toàn bộ nợ', 'Danger')),
+                    row(btn('menu:section:bank', '◀ Quay Lại', 'Secondary'))
+                ]
+            });
+        }
+        if (sub === 'loan') {
+            const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+            user.coins += 50000;
+            user.debt = (user.debt || 0) + 55000;
+            await user.save();
+            return interaction.update({ embeds: [successEmbed('Thành công', 'Đã giải ngân 50,000 xu! Dư nợ tăng thêm 55,000 xu (gồm 10% lãi).')], components: [row(btn('menu:vay:open', '◀ Quay Lại Ngân Hàng', 'Secondary'))] });
+        }
+        if (sub === 'repay') {
+            const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+            if (!user.debt || user.debt <= 0) return interaction.reply({ embeds: [errorEmbed('Bạn không có dư nợ!')], flags: MessageFlags.Ephemeral });
+            user.coins -= user.debt;
+            user.debt = 0;
+            await user.save();
+            return interaction.update({ embeds: [successEmbed('Thành công', `Đã thanh toán toàn bộ dư nợ!\nSố dư hiện tại: **${user.coins.toLocaleString('vi-VN')} xu**.`)], components: [row(btn('menu:vay:open', '◀ Quay Lại Ngân Hàng', 'Secondary'))] });
+        }
+    }
+
+    // ── Tặng Đồ (Gift) ──────────────────────────────────────────────────────
+    if (action === 'gift') {
+        const sub = parts[2];
+        const targetId = parts[3];
+        if (sub === 'open') {
+            return interaction.update({
+                embeds: [bakeryEmbed('🎁 Chọn Loại Quà', 'Bạn muốn tặng gì cho người chơi này?', COLORS.primary)],
+                components: [
+                    row(btn(`menu:gift:crystals:${targetId}`, '💎 Tinh Thể', 'Primary'), btn(`menu:gift:skills:${targetId}`, '📜 Kỹ Năng', 'Primary'), btn(`menu:gift:gears:${targetId}`, '🛡️ Trang Bị', 'Primary')),
+                    row(btn('menu:close', '❌ Đóng', 'Danger'))
+                ]
+            });
+        }
+        if (sub === 'crystals') {
+            const modal = new ModalBuilder().setCustomId(`menu:modal:gift_crystals:${targetId}`).setTitle('🎁 Tặng Tinh Thể').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('amount').setLabel('Số lượng Tinh Thể').setStyle(TextInputStyle.Short).setRequired(true)));
+            return interaction.showModal(modal);
+        }
+        if (sub === 'skills' || sub === 'gears') {
+            const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+            const options = [];
+            const collection = sub === 'skills' ? user.skillBooks : user.gears;
+            const ref = sub === 'skills' ? require('../../utils/constants').SKILL_BOOKS : require('../../utils/constants').GEARS;
+            if (collection) for (const [k, v] of collection.entries()) if (v > 0 && ref[k]) options.push({ label: `${ref[k].emoji} ${ref[k].name} (Sẵn: ${v})`, value: k });
+            if (!options.length) return interaction.reply({ embeds: [errorEmbed('Bạn không có món đồ nào trong kho này!')], flags: MessageFlags.Ephemeral });
+            return interaction.update({ embeds: [bakeryEmbed('🎁 Chọn Món Quà', 'Chọn món đồ muốn tặng:', COLORS.primary)], components: [row(selectMenu(`menu:gift_select:${sub}:${targetId}`, 'Chọn món đồ...', options.slice(0, 25))), row(btn(`menu:gift:open:${targetId}`, '◀ Quay Lại', 'Secondary'))] });
+        }
+    }
+    
+    if (action === 'gift_select') {
+        const sub = parts[2], targetId = parts[3], itemId = interaction.values[0];
+        const modal = new ModalBuilder().setCustomId(`menu:modal:gift_item:${sub}:${targetId}:${itemId}`).setTitle('🎁 Nhập Số Lượng').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('amount').setLabel('Số lượng muốn tặng').setStyle(TextInputStyle.Short).setRequired(true)));
+        return interaction.showModal(modal);
     }
 
     // ── Dev Panel: Mở Modal ───────────────────────────────────────────────────
@@ -544,6 +609,44 @@ module.exports = {
         embeds: [bakeryEmbed('⚔️ Sàn Đấu Linh Thú', msg, result.isWin ? COLORS.success : COLORS.error)],
         components: [backRow],
       });
+    }
+
+    // ── Tặng Quà (Gift) Modal ────────────────────────────────────────────────
+    if (interaction.customId.startsWith('menu:modal:gift_')) {
+        const parts = interaction.customId.split(':');
+        const type = parts[2];
+        const amount = parseInt(interaction.fields.getTextInputValue('amount'));
+        
+        if (isNaN(amount) || amount <= 0) return interaction.reply({ embeds: [errorEmbed('Số lượng không hợp lệ!')], flags: MessageFlags.Ephemeral });
+        const sender = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+        
+        if (type === 'gift_crystals') {
+            const targetId = parts[3];
+            if ((sender.crystals || 0) < amount) return interaction.reply({ embeds: [errorEmbed('Không đủ Tinh Thể!')], flags: MessageFlags.Ephemeral });
+            const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetId } }, { upsert: true, new: true });
+            sender.crystals -= amount;
+            receiver.crystals = (receiver.crystals || 0) + amount;
+            await Promise.all([sender.save(), receiver.save()]);
+            return interaction.reply({ embeds: [successEmbed('🎁 Tặng Quà Thành Công!', `Đã tặng **${amount} 💎 Tinh Thể** cho <@${targetId}>.`)], flags: MessageFlags.Ephemeral });
+        }
+        
+        if (type === 'gift_item') {
+            const sub = parts[3], targetId = parts[4], itemId = parts[5];
+            const collection = sub === 'skills' ? sender.skillBooks : sender.gears;
+            const ref = sub === 'skills' ? require('../../utils/constants').SKILL_BOOKS : require('../../utils/constants').GEARS;
+            if (!collection || (collection.get(itemId) || 0) < amount) return interaction.reply({ embeds: [errorEmbed('Không đủ vật phẩm trong kho!')], flags: MessageFlags.Ephemeral });
+            
+            const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetId } }, { upsert: true, new: true });
+            collection.set(itemId, collection.get(itemId) - amount);
+            sender.markModified(sub === 'skills' ? 'skillBooks' : 'gears');
+            
+            const rCollectionName = sub === 'skills' ? 'skillBooks' : 'gears';
+            if (!receiver[rCollectionName]) receiver[rCollectionName] = new Map();
+            receiver[rCollectionName].set(itemId, (receiver[rCollectionName].get(itemId) || 0) + amount);
+            receiver.markModified(rCollectionName);
+            await Promise.all([sender.save(), receiver.save()]);
+            return interaction.reply({ embeds: [successEmbed('🎁 Tặng Quà Thành Công!', `Đã tặng **${amount}x ${ref[itemId].emoji} ${ref[itemId].name}** cho <@${targetId}>.`)], flags: MessageFlags.Ephemeral });
+        }
     }
 
     // Giải mã target từ tất cả modal trừ broadcast

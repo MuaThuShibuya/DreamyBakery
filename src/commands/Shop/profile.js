@@ -60,7 +60,7 @@ async function buildProfileEmbed(target, user, role) {
     '',
     `💰 **Ví:** \`${user.coins.toLocaleString('vi-VN')}\` xu`,
     `⭐ **Cấp ${level}** — ${bar} ${pct}%`,
-    `❤️ **HP:** ${Math.floor(user.hp)}/100`,
+    `❤️ **HP:** ${Math.floor(user.hp)}/100 *(Hồi 1 HP/3p)*`,
     `✨ **EXP:** ${progress} / ${needed}  *(Tổng lên cấp ${level + 1}: ${expForLevel(level)})*`,
     '',
   ];

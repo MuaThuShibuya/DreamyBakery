@@ -41,7 +41,7 @@ module.exports = {
 
       const menu = selectMenu(`eat:consume`, '🍰 Chọn bánh để ăn...', options.slice(0, 25));
       return interaction.update({
-        embeds: [bakeryEmbed('🍰 Ăn Bánh Hồi Sức', `❤️ HP hiện tại của bạn: **${Math.floor(user.hp)}/100**\nChọn bánh để nạp lại năng lượng chống bị úp sọt!`, COLORS.success)],
+        embeds: [bakeryEmbed('🍰 Ăn Bánh Hồi Sức', `❤️ HP hiện tại của bạn: **${Math.floor(user.hp)}/100** *(Hồi 1 HP/3p)*\nChọn bánh để nạp lại năng lượng chống bị úp sọt!`, COLORS.success)],
         components: [row(menu), row(btn('menu:section:profile', '◀ Quay Lại', 'Secondary'))]
       });
     }

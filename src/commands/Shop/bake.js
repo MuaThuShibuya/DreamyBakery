@@ -335,7 +335,9 @@ module.exports = {
       user.markModified('inventory');
 
       const hasBack = interaction.message.components.some(r => r.components.some(c => c.customId === 'bake:open'));
-      const isShiny = Math.random() < itemData.shinyChance;
+      const baseChance = itemData.shinyChance;
+      const bonusChance = qty >= 5 ? 0.15 : (qty > 1 ? qty * 0.02 : 0);
+      const isShiny = Math.random() < (baseChance + bonusChance);
 
       // Bánh Basic = Instant Bake
       if (itemData.bakeTime === 0) {

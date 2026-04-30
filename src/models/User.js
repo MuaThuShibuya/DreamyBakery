@@ -127,6 +127,9 @@ const userSchema = new mongoose.Schema({
   /** Máu của người chơi (dùng cho lệnh chọi bánh !nem) */
   hp:    { type: Number, default: 100 },
 
+  /** Thời điểm hồi HP lần cuối */
+  lastHpUpdate: { type: Date, default: Date.now },
+
   /** Số tiền nợ (vay từ admin) */
   debt:  { type: Number, default: 0 },
 
@@ -228,5 +231,33 @@ userSchema.index({ guildId: 1, exp: -1 });
 userSchema.index({ guildId: 1, 'stats.totalBaked': -1 });
 /** Index cho bảng xếp hạng theo Lực Chiến */
 userSchema.index({ guildId: 1, 'stats.highestBP': -1 });
+
+// ─── Middleware / Hooks ──────────────────────────────────────────────────────
+
+userSchema.post(['findOne', 'findOneAndUpdate'], function(doc) {
+  if (!doc || typeof doc.save !== 'function') return;
+  const now = new Date();
+  
+  if (!doc.lastHpUpdate) {
+    doc.lastHpUpdate = now;
+    doc.constructor.updateOne({ _id: doc._id }, { $set: { lastHpUpdate: now } }).catch(() => {});
+    return;
+  }
+  
+  const REGEN_RATE_MS = 3 * 60 * 1000; // 3 phút hồi 1 HP
+  const diff = now.getTime() - doc.lastHpUpdate.getTime();
+  const hpToRecover = Math.floor(diff / REGEN_RATE_MS);
+  
+  if (hpToRecover > 0 && doc.hp < 100) {
+    const newHp = Math.min(100, doc.hp + hpToRecover);
+    const newLastHpUpdate = newHp === 100 ? now : new Date(doc.lastHpUpdate.getTime() + hpToRecover * REGEN_RATE_MS);
+    doc.hp = newHp;
+    doc.lastHpUpdate = newLastHpUpdate;
+    doc.constructor.updateOne({ _id: doc._id }, { $set: { hp: newHp, lastHpUpdate: newLastHpUpdate } }).catch(() => {});
+  } else if (doc.hp >= 100 && diff > REGEN_RATE_MS) {
+    doc.lastHpUpdate = now;
+    doc.constructor.updateOne({ _id: doc._id }, { $set: { lastHpUpdate: now } }).catch(() => {});
+  }
+});
 
 module.exports = mongoose.model('User', userSchema);

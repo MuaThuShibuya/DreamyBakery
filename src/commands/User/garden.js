@@ -170,6 +170,10 @@ module.exports = {
       lines.push(`${INGREDIENTS[k].emoji} **${INGREDIENTS[k].name}**: +${amt}`);
     }
 
+    const expGained = randomInt(5, 15);
+    user.exp += expGained;
+    lines.push(`⭐ **Kinh nghiệm**: +${expGained} EXP`);
+
     user.markModified('inventory');
     await user.save();
 
