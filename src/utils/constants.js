@@ -146,6 +146,9 @@ const TRAITS = {
   balanced: { name: 'Cân Bằng', emoji: '⚖️', effects: { hp: 0.35, atk: 0.35, def: 0.35, spd: 0.35 } },
   fury:     { name: 'Cuồng Nộ', emoji: '💢', effects: { atk: 0.50, hp: 0.30, def: 0.30, spd: 0.30 } },
   vitality: { name: 'Sinh Lực', emoji: '❤️', effects: { hp: 0.50, atk: 0.30, def: 0.30, spd: 0.30 } },
+  ninja:    { name: 'Nhẫn Giả', emoji: '🥷', effects: { spd: 0.70, atk: 0.40, hp: 0.20, def: 0.20 } },
+  vampiric: { name: 'Ký Sinh',  emoji: '🦇', effects: { hp: 0.40, atk: 0.50, def: 0.30, spd: 0.30 } },
+  divine:   { name: 'Thần Thánh',emoji:'✨', effects: { hp: 0.60, atk: 0.60, def: 0.60, spd: 0.60 } },
 };
 
 const TRAIT_LEVEL_RATES = [
@@ -163,6 +166,14 @@ const SKILL_BOOKS = {
   'skill_vampire':  { name: 'Hút Máu',      emoji: '🦇', price: 15000, desc: 'Gây 120% sát thương, hồi máu bằng 50% sát thương gây ra.', damageMult: 1.2, heal: 0.5 },
   'skill_pierce':   { name: 'Xuyên Giáp',   emoji: '🗡️', price: 20000, desc: 'Bỏ qua một phần giáp, sát thương rất mạnh.', damageMult: 1.8, heal: 0, ignoreDef: true },
   'skill_ultimate': { name: 'Tối Thượng',   emoji: '✨', price: 50000, desc: 'Gây 250% sát thương, tỷ lệ kích hoạt thấp.', damageMult: 2.5, heal: 0 },
+  'skill_fireball': { name: 'Cầu Lửa',      emoji: '🔥', price: 10000, desc: 'Thiêu đốt kẻ thù với 130% sát thương.', damageMult: 1.3, heal: 0 },
+  'skill_water_pulse':{ name: 'Thủy Kích',  emoji: '🌊', price: 12000, desc: 'Dòng nước xiết gây 140% sát thương.', damageMult: 1.4, heal: 0 },
+  'skill_poison_fang':{ name: 'Nanh Độc',   emoji: '🐍', price: 25000, desc: 'Bỏ qua giáp, gây 150% sát thương độc.', damageMult: 1.5, heal: 0, ignoreDef: true },
+  'skill_holy_light':{ name: 'Thánh Quang', emoji: '🌟', price: 30000, desc: 'Sát thương 100%, hồi máu 100% sát thương gây ra.', damageMult: 1.0, heal: 1.0 },
+  'skill_assassinate':{ name: 'Ám Sát',     emoji: '🥷', price: 40000, desc: 'Đòn hiểm xuyên giáp 200% sát thương.', damageMult: 2.0, heal: 0, ignoreDef: true },
+  'skill_meteor':   { name: 'Thiên Thạch',  emoji: '☄️', price: 80000, desc: 'Sức mạnh hủy diệt gây 300% sát thương.', damageMult: 3.0, heal: 0 },
+  'skill_divine_smite':{ name: 'Thần Phạt', emoji: '⚡', price: 120000, desc: 'Sát thương 250% xuyên giáp, cực kỳ khủng khiếp.', damageMult: 2.5, heal: 0, ignoreDef: true },
+  'skill_blood_moon': { name: 'Huyết Nguyệt',emoji: '🩸', price: 150000, desc: 'Sát thương 220% xuyên giáp, hồi máu 60%.', damageMult: 2.2, heal: 0.6, ignoreDef: true },
 };
 
 // ─── Hệ Thống Trang Bị (Gears & Sets) ──────────────────────────────────────────
@@ -171,7 +182,14 @@ const GEAR_SETS = {
   gladiator: { name: 'Chiến Binh', emoji: '⚔️', 2: { atk: 0.15 }, 4: { atk: 0.30 } },
   guardian:  { name: 'Hộ Vệ',      emoji: '🛡️', 2: { def: 0.15 }, 4: { def: 0.30 } },
   swift:     { name: 'Phong Thần', emoji: '💨', 2: { spd: 0.15 }, 4: { spd: 0.30 } },
-  vitality:  { name: 'Sinh Lực',   emoji: '❤️', 2: { hp: 0.15 }, 4: { hp: 0.30 } }
+  vitality:  { name: 'Sinh Lực',   emoji: '❤️', 2: { hp: 0.15 }, 4: { hp: 0.30 } },
+  assassin:  { name: 'Sát Thủ',    emoji: '🥷', 2: { atk: 0.10, spd: 0.10 }, 4: { atk: 0.20, spd: 0.20 } },
+  paladin:   { name: 'Thánh Kỵ Sĩ',emoji: '🛡️', 2: { hp: 0.10, def: 0.10 }, 4: { hp: 0.20, def: 0.20 } },
+  dragon:    { name: 'Long Thần',  emoji: '🐉', 2: { hp: 0.05, atk: 0.05, def: 0.05, spd: 0.05 }, 4: { hp: 0.15, atk: 0.15, def: 0.15, spd: 0.15 } },
+  phantom:   { name: 'Bóng Ma',    emoji: '👻', 2: { spd: 0.25 }, 4: { spd: 0.45 } },
+  titan:     { name: 'Khổng Lồ',   emoji: '🗿', 2: { hp: 0.25 }, 4: { hp: 0.45 } },
+  warlock:   { name: 'Thuật Sĩ',   emoji: '🔮', 2: { atk: 0.25 }, 4: { atk: 0.45 } },
+  divine:    { name: 'Thần Linh',  emoji: '🌟', 2: { atk: 0.15, hp: 0.15, def: 0.15, spd: 0.15 }, 4: { atk: 0.35, hp: 0.35, def: 0.35, spd: 0.35 } },
 };
 
 const GEARS = {
@@ -195,6 +213,41 @@ const GEARS = {
   gear_vital_head:  { name: 'Vương Miện Sinh Lực',type: 'head',set: 'vitality', stats: { hp: 400 }, price: 10000, emoji: '👑' },
   gear_vital_armor: { name: 'Giáp Sinh Lực',   type: 'armor',  set: 'vitality', stats: { def: 40 }, price: 10000, emoji: '👘' },
   gear_vital_acc:   { name: 'Ngọc Sinh Lực',   type: 'accessory', set: 'vitality',stats: { hp: 200 }, price: 10000, emoji: '🔮' },
+  // Assassin (ATK & SPD)
+  gear_ass_weapon:  { name: 'Dao Đoạt Mệnh',   type: 'weapon', set: 'assassin', stats: { atk: 80, spd: 20 }, price: 25000, emoji: '🗡️' },
+  gear_ass_head:    { name: 'Mặt Nạ Hắc Ám',   type: 'head',   set: 'assassin', stats: { hp: 100, spd: 30 }, price: 25000, emoji: '🥷' },
+  gear_ass_armor:   { name: 'Áo Choàng Đêm',   type: 'armor',  set: 'assassin', stats: { def: 20, atk: 30 }, price: 25000, emoji: '🧥' },
+  gear_ass_acc:     { name: 'Nhẫn Ẩn Tích',    type: 'accessory', set: 'assassin', stats: { spd: 50 }, price: 25000, emoji: '💍' },
+  // Paladin (HP & DEF)
+  gear_pal_weapon:  { name: 'Búa Phán Xét',    type: 'weapon', set: 'paladin',  stats: { atk: 40, def: 30 }, price: 25000, emoji: '🔨' },
+  gear_pal_head:    { name: 'Mũ Thánh Quang',  type: 'head',   set: 'paladin',  stats: { hp: 350 }, price: 25000, emoji: '⛑️' },
+  gear_pal_armor:   { name: 'Giáp Bất Hoại',   type: 'armor',  set: 'paladin',  stats: { def: 100 }, price: 25000, emoji: '🛡️' },
+  gear_pal_acc:     { name: 'Dây Chuyền Thánh',type: 'accessory', set: 'paladin',stats: { hp: 200, def: 20 }, price: 25000, emoji: '📿' },
+  // Dragon (All-rounder)
+  gear_dra_weapon:  { name: 'Long Kiếm',       type: 'weapon', set: 'dragon',   stats: { atk: 100, hp: 100 }, price: 50000, emoji: '🗡️' },
+  gear_dra_head:    { name: 'Sừng Long Thần',  type: 'head',   set: 'dragon',   stats: { hp: 300, def: 30 }, price: 50000, emoji: '👑' },
+  gear_dra_armor:   { name: 'Vảy Rồng',        type: 'armor',  set: 'dragon',   stats: { def: 80, hp: 200 }, price: 50000, emoji: '🐉' },
+  gear_dra_acc:     { name: 'Long Nhãn',       type: 'accessory', set: 'dragon',stats: { spd: 40, atk: 40 }, price: 50000, emoji: '🔮' },
+  // Phantom (Extreme SPD)
+  gear_pha_weapon:  { name: 'Lưỡi Dao Vô Ảnh', type: 'weapon', set: 'phantom',  stats: { atk: 70, spd: 40 }, price: 40000, emoji: '🔪' },
+  gear_pha_head:    { name: 'Mũ Bóng Ma',      type: 'head',   set: 'phantom',  stats: { spd: 50 }, price: 40000, emoji: '👻' },
+  gear_pha_armor:   { name: 'Áo Vô Hình',      type: 'armor',  set: 'phantom',  stats: { def: 30, spd: 30 }, price: 40000, emoji: '🌫️' },
+  gear_pha_acc:     { name: 'Hài Bóng Đêm',    type: 'accessory', set: 'phantom',stats: { spd: 80 }, price: 40000, emoji: '🥾' },
+  // Titan (Extreme HP)
+  gear_tit_weapon:  { name: 'Rìu Khổng Lồ',    type: 'weapon', set: 'titan',    stats: { atk: 60, hp: 200 }, price: 40000, emoji: '🪓' },
+  gear_tit_head:    { name: 'Mũ Sừng Khổng Lồ',type: 'head',   set: 'titan',    stats: { hp: 600 }, price: 40000, emoji: '🪖' },
+  gear_tit_armor:   { name: 'Giáp Thép Titan', type: 'armor',  set: 'titan',    stats: { def: 50, hp: 400 }, price: 40000, emoji: '🧱' },
+  gear_tit_acc:     { name: 'Đai Khổng Lồ',    type: 'accessory', set: 'titan', stats: { hp: 300, def: 30 }, price: 40000, emoji: '🎗️' },
+  // Warlock (Extreme ATK)
+  gear_war_weapon:  { name: 'Trượng Hủy Diệt', type: 'weapon', set: 'warlock',  stats: { atk: 150 }, price: 40000, emoji: '🪄' },
+  gear_war_head:    { name: 'Vương Miện Quỷ',  type: 'head',   set: 'warlock',  stats: { hp: 200, atk: 50 }, price: 40000, emoji: '👿' },
+  gear_war_armor:   { name: 'Áo Choàng Cấm',   type: 'armor',  set: 'warlock',  stats: { def: 20, atk: 80 }, price: 40000, emoji: '👘' },
+  gear_war_acc:     { name: 'Sách Hắc Ám',     type: 'accessory', set: 'warlock',stats: { atk: 70 }, price: 40000, emoji: '📓' },
+  // Divine (Legendary All-rounder)
+  gear_div_weapon:  { name: 'Gươm Ánh Sáng',   type: 'weapon', set: 'divine',   stats: { atk: 250, spd: 50 }, price: 150000, emoji: '⚔️' },
+  gear_div_head:    { name: 'Vòng Hào Quang',  type: 'head',   set: 'divine',   stats: { hp: 800, def: 50 }, price: 150000, emoji: '👼' },
+  gear_div_armor:   { name: 'Giáp Thần Tướng', type: 'armor',  set: 'divine',   stats: { def: 150, hp: 500 }, price: 150000, emoji: '🌟' },
+  gear_div_acc:     { name: 'Cánh Thần',       type: 'accessory', set: 'divine',stats: { spd: 100, atk: 100 }, price: 150000, emoji: '🪽' },
 };
 
 // ─── Hệ thống Thú Cưng & PvP ──────────────────────────────────────────────────

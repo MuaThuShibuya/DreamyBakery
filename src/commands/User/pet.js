@@ -8,7 +8,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const mongoose = require('mongoose');
 const User = require('../../models/User');
 const { bakeryEmbed, errorEmbed, successEmbed, btn, row, selectMenu } = require('../../utils/embeds');
-const { PETS, PET_RANKS, TRAITS, TRAIT_LEVEL_RATES, SKILL_BOOKS, GEAR_SETS, GEARS, BAKED_GOODS, BAKED_KEYS, COLORS } = require('../../utils/constants');
+const { PETS, PET_RANKS, TRAITS, TRAIT_LEVEL_RATES, SKILL_BOOKS, GEAR_SETS, GEARS, BAKED_GOODS, BAKED_KEYS, COLORS, INGREDIENTS } = require('../../utils/constants');
 const { getItemInfo } = require('../../utils/gameUtils');
 
 /** Cấu hình Gacha */
@@ -193,7 +193,7 @@ module.exports = {
         btn('pet:list:0:ALL', `🎒 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0)
       );
       const btns2 = row(
-        btn('pet:tower', '🏰 Tháp Aincrad', 'Danger'),
+        btn('pet:dungeon_menu', '⚔️ Khiêu Chiến Ải', 'Danger'),
         btn('pet:dex', '📖 Pokedex', 'Secondary')
       );
       const btns3 = row(
@@ -563,6 +563,125 @@ module.exports = {
       return this.handleComponent(interaction);
     }
 
+    // ── Menu Danh Mục Ải ────────────────────────────────────────────────
+    if (action === 'dungeon_menu') {
+      return interaction.update({
+        embeds: [bakeryEmbed('⚔️ Khiêu Chiến Ải', '> *Chọn một khu vực để bắt đầu hành trình rèn luyện Thú cưng của bạn!*\n\n🌲 **Rừng Tân Binh:** Khu vực dễ dàng với 50 ải. Đánh lại để farm đồ cơ bản.\n🏰 **Tháp Aincrad:** Tháp boss vô tận với độ khó tăng dần. Thưởng Tinh Thể, Kỹ Năng.', COLORS.danger)],
+        components: [
+          row(btn('pet:dungeon', '🌲 Rừng Tân Binh', 'Success'), btn('pet:tower', '🏰 Tháp Aincrad', 'Danger')),
+          row(btn('pet:open', '◀ Quay Lại Trại Thú', 'Secondary'))
+        ]
+      });
+    }
+
+    // ── Rừng Tân Binh (Ải Dễ) ────────────────────────────────────────────
+    if (action === 'dungeon' || action === 'dungeon_select') {
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const currentUnlockedStage = user.dungeonStage || 1;
+      const maxStage = Math.min(50, currentUnlockedStage);
+      const stage = action === 'dungeon_select' ? parseInt(interaction.values[0]) : maxStage;
+
+      const stageOptions = [];
+      const startStage = Math.max(1, maxStage - 24); // Show up to 25 recent stages in dropdown
+      for (let i = startStage; i <= maxStage; i++) {
+         stageOptions.push({ label: `Ải ${i}${i === currentUnlockedStage && i <= 50 ? ' (Chưa qua)' : ' (Đã qua)'}`, value: i.toString(), default: i === stage });
+      }
+
+      const bossHp = 30 + stage * 15;
+      const bossAtk = 5 + stage * 3;
+
+      const desc = [
+        `🌲 **RỪNG TÂN BINH — ẢI ${stage}/50**`,
+        `> *Khu rừng rèn luyện cho Thú cưng.*`,
+        ``,
+        `👹 **Quái Rừng Ải ${stage}**`,
+        `❤️ HP gốc: **${bossHp}**  |  🗡️ ATK gốc: **${bossAtk}**`,
+        ``,
+        stage < currentUnlockedStage ? `🔄 *Đánh lại ải sẽ nhận vật phẩm tài nguyên ngẫu nhiên (Lúa, Sữa, Trứng).*` : `🎁 *Vượt ải lần đầu nhận lượng Xu, EXP lớn và Nguyên liệu Hiếm!*`,
+        ``,
+        `*Bạn đã sẵn sàng khiêu chiến chưa?*`
+      ].join('\n');
+
+      return interaction.update({
+        embeds: [bakeryEmbed(`🌲 Rừng Tân Binh`, desc, COLORS.success)],
+        components: [
+          row(selectMenu('pet:dungeon_select', '🌲 Chọn Ải để khiêu chiến...', stageOptions)),
+          row(btn(`pet:dungeon_fight:${stage}`, '⚔️ Vào Đánh', 'Primary'), btn('pet:dungeon_menu', '◀ Quay Lại', 'Secondary'))
+        ]
+      });
+    }
+
+    if (action === 'dungeon_fight') {
+      try {
+        await interaction.deferUpdate();
+      } catch (e) {
+        // Bỏ qua lỗi deferUpdate để tránh ngắt luồng
+      }
+      const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      const stage = parseInt(parts[2]) || 1;
+      const isFirstClear = stage === (user.dungeonStage || 1);
+
+      const bossHp = 30 + stage * 15;
+      const bossAtk = 5 + stage * 3;
+      const bossDef = stage * 2;
+      const bossSpd = stage * 2;
+
+      const bossUser = {
+        userId: 'boss_dungeon', guildId: interaction.guildId, username: `Quái Ải ${stage}`,
+        coins: 0, activePetId: 'boss_pet',
+        pets: [{
+          _id: 'boss_pet', name: `Quái Rừng Ải ${stage}`, petKey: 'wolf', level: stage,
+          stats: { hp: bossHp, atk: bossAtk, def: bossDef, spd: bossSpd },
+          skills: []
+        }]
+      };
+
+      const result = await petBattleEngine(interaction, user, bossUser, 'tower');
+      if (result.error) return interaction.editReply({ embeds: [errorEmbed(result.error)], components: [row(btn('pet:dungeon_menu', '◀ Quay Lại', 'Secondary'))] });
+
+      let msg = `⚔️ Bạn chạm trán **Quái Rừng Ải ${stage}**!\n\n`;
+      msg += result.log.map((l, i) => `*Lượt ${i+1}:* ${l}`).join('\n') + '\n\n';
+      msg += `❤️ **${result.aPet.name}:** ${Math.floor(result.aHp)}/${result.aMaxHp} HP  |  ❤️ **Quái:** ${Math.floor(result.vHp)}/${result.vMaxHp} HP\n\n`;
+
+      if (result.isWin) {
+        let rewardCoins = 0;
+        let rewardExp = 0;
+        let dropItem = '';
+        let dropQty = 0;
+        
+        if (isFirstClear) {
+            if (stage < 50) user.dungeonStage = stage + 1;
+            rewardCoins = stage * 150;
+            rewardExp = stage * 20;
+            const dropPool = ['chocolate', 'vanilla', 'goldpowder', 'strawberry', 'rose'];
+            dropItem = dropPool[Math.floor(Math.random() * dropPool.length)];
+            dropQty = 2 + Math.floor(stage / 10);
+            msg += `🎉 **CHIẾN THẮNG (LẦN ĐẦU)!**\n🎁 **Phần Thưởng:**\n💰 Nhận **${rewardCoins} xu**\n⭐ Nhận **${rewardExp} EXP**\n📦 Nhặt được **${dropQty}x ${INGREDIENTS[dropItem].emoji} ${INGREDIENTS[dropItem].name}**`;
+        } else {
+            rewardCoins = stage * 30;
+            rewardExp = stage * 5;
+            const dropPool = ['wheat', 'milk', 'egg'];
+            dropItem = dropPool[Math.floor(Math.random() * dropPool.length)];
+            dropQty = 1 + Math.floor(Math.random() * 2);
+            msg += `🎉 **CHIẾN THẮNG!**\n🎁 **Phần Thưởng Farm:**\n💰 Nhận **${rewardCoins} xu**\n⭐ Nhận **${rewardExp} EXP**\n📦 Nhặt được **${dropQty}x ${INGREDIENTS[dropItem].emoji} ${INGREDIENTS[dropItem].name}**`;
+        }
+
+        user.coins += rewardCoins;
+        user.exp += rewardExp;
+        if (!user.inventory) user.inventory = {};
+        user.inventory[dropItem] = (user.inventory[dropItem] || 0) + dropQty;
+        user.markModified('inventory');
+        await user.save();
+      } else {
+        msg += `💀 **THẤT BẠI!** Thú cưng của bạn đã kiệt sức. Cần rèn luyện thêm! (Mất 10 HP)`;
+      }
+
+      return interaction.editReply({
+        embeds: [bakeryEmbed(`🌲 Kết Quả Ải ${stage}`, msg, result.isWin ? COLORS.success : COLORS.error)],
+        components: [row(btn('pet:dungeon', '🔄 Chọn Ải Khác', 'Primary'), btn('pet:dungeon_menu', '◀ Về Danh Mục Ải', 'Secondary'))]
+      });
+    }
+
     // ── Tháp Aincrad (Boss SAO) ──────────────────────────────────────────
     if (action === 'tower' || action === 'tower_select') {
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
@@ -591,7 +710,7 @@ module.exports = {
         embeds: [bakeryEmbed(`🏰 Tháp Aincrad`, desc, COLORS.danger)],
         components: [
           row(selectMenu('pet:tower_select', '🏰 Chọn Tầng để khiêu chiến...', floorOptions)),
-          row(btn(`pet:tower_fight:${floor}`, '⚔️ Vào Đánh', 'Danger'), btn('menu:home', '◀ Về Menu', 'Secondary'))
+          row(btn(`pet:tower_fight:${floor}`, '⚔️ Vào Đánh', 'Danger'), btn('pet:dungeon_menu', '◀ Quay Lại', 'Secondary'))
         ]
       });
     }
@@ -658,7 +777,7 @@ module.exports = {
 
       return interaction.editReply({
         embeds: [bakeryEmbed(`🏰 Kết Quả Tầng ${floor}`, msg, result.isWin ? COLORS.success : COLORS.error)],
-        components: [row(btn('pet:tower', '🔄 Tiếp Tục Tháp', 'Primary'), btn('menu:home', '◀ Về Menu', 'Secondary'))]
+        components: [row(btn('pet:tower', '🔄 Tiếp Tục Tháp', 'Primary'), btn('pet:dungeon_menu', '◀ Về Danh Mục Ải', 'Secondary'))]
       });
     }
 

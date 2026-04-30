@@ -89,6 +89,7 @@ const invSchema = new mongoose.Schema({
   chocolate: { type: Number, default: 0, min: 0 },
   vanilla: { type: Number, default: 0, min: 0 },
   goldpowder: { type: Number, default: 0, min: 0 },
+  
   // Bánh thường
   strawberry_cupcake: { type: Number, default: 0, min: 0 },
   butter_croissant:   { type: Number, default: 0, min: 0 },
@@ -98,6 +99,7 @@ const invSchema = new mongoose.Schema({
   rose_cake:          { type: Number, default: 0, min: 0 },
   layered_cake:       { type: Number, default: 0, min: 0 },
   golden_pastry:      { type: Number, default: 0, min: 0 },
+
   // Bánh Thượng Hạng (shiny)
   shiny_strawberry_cupcake: { type: Number, default: 0, min: 0 },
   shiny_butter_croissant:   { type: Number, default: 0, min: 0 },
@@ -211,6 +213,7 @@ const userSchema = new mongoose.Schema({
   pvpCount:   { type: Number, default: 0 },
   pvpTime:    { type: Date, default: null },
   towerFloor: { type: Number, default: 1 },
+  dungeonStage: { type: Number, default: 1 },
 
   /** Trạng thái cấm sử dụng bot (Admin set bằng /admin ban) */
   banned:    { type: Boolean, default: false },
