@@ -190,23 +190,24 @@ module.exports = {
       const btns1 = row(
         btn(activePet ? `pet:view_pet:${activePet._id}` : 'pet:view_pet:none', '🐾 Xem Thú Cưng', 'Success', !activePet),
         btn('pet:gacha_menu', `🥚 Khu Ấp Trứng`, 'Primary'),
-        btn('pet:list:0:ALL', `🎒 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0)
-      );
-      const btns2 = row(
-        btn('pet:dungeon_menu', '⚔️ Khiêu Chiến Ải', 'Danger'),
+        btn('pet:list:0:ALL', `🎒 Kho Pet (${user.pets.length})`, 'Secondary', user.pets.length === 0),
         btn('pet:dex', '📖 Pokedex', 'Secondary')
       );
-      const btns3 = row(
+      const btns2 = row(
         btn('menu:home', '◀ Về Menu', 'Secondary')
       );
       
+      const payload = {
+        embeds: [bakeryEmbed('🐾 Trại Thú Cưng', desc, COLORS.success)],
+        components: [btns1, btns2]
+      };
+
+      if (interaction.replied || interaction.deferred) return interaction.editReply(payload).catch(e => console.error('[❌ DEBUG PET ERROR] Lỗi editReply ở trại thú:', e.message));
       try {
-        return await interaction.update({
-          embeds: [bakeryEmbed('🐾 Trại Thú Cưng', desc, COLORS.success)],
-          components: [btns1, btns2, btns3]
-        });
+        return await interaction.update(payload);
       } catch (e) {
-        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
+        console.error(`[❌ DEBUG PET ERROR] Lỗi update ở trại thú:`, e.message);
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return interaction.editReply(payload).catch(() => {});
         throw e;
       }
     }
@@ -565,13 +566,21 @@ module.exports = {
 
     // ── Menu Danh Mục Ải ────────────────────────────────────────────────
     if (action === 'dungeon_menu') {
-      return interaction.update({
+      const payload = {
         embeds: [bakeryEmbed('⚔️ Khiêu Chiến Ải', '> *Chọn một khu vực để bắt đầu hành trình rèn luyện Thú cưng của bạn!*\n\n🌲 **Rừng Tân Binh:** Khu vực dễ dàng với 50 ải. Đánh lại để farm đồ cơ bản.\n🏰 **Tháp Aincrad:** Tháp boss vô tận với độ khó tăng dần. Thưởng Tinh Thể, Kỹ Năng.', COLORS.danger)],
         components: [
           row(btn('pet:dungeon', '🌲 Rừng Tân Binh', 'Success'), btn('pet:tower', '🏰 Tháp Aincrad', 'Danger')),
-          row(btn('pet:open', '◀ Quay Lại Trại Thú', 'Secondary'))
+          row(btn('menu:home', '◀ Về Menu', 'Secondary'))
         ]
-      });
+      };
+      if (interaction.replied || interaction.deferred) return interaction.editReply(payload).catch(e => console.error('[❌ DEBUG PET ERROR] Lỗi editReply ở dungeon_menu:', e.message));
+      try {
+        return await interaction.update(payload);
+      } catch (e) {
+        console.error(`[❌ DEBUG PET ERROR] Lỗi update ở dungeon_menu:`, e.message);
+        if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return interaction.editReply(payload).catch(() => {});
+        throw e;
+      }
     }
 
     // ── Rừng Tân Binh (Ải Dễ) ────────────────────────────────────────────
@@ -615,7 +624,7 @@ module.exports = {
       try {
         await interaction.deferUpdate();
       } catch (e) {
-        // Bỏ qua lỗi deferUpdate để tránh ngắt luồng
+        console.warn(`[⚠️ DEBUG PET WARN] Bỏ qua lỗi deferUpdate ở dungeon_fight:`, e.message);
       }
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const stage = parseInt(parts[2]) || 1;
@@ -719,7 +728,7 @@ module.exports = {
       try {
         await interaction.deferUpdate();
       } catch (e) {
-        // Bỏ qua lỗi deferUpdate để tránh ngắt luồng
+        console.warn(`[⚠️ DEBUG PET WARN] Bỏ qua lỗi deferUpdate ở tower_fight:`, e.message);
       }
       const user = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
       const floor = parseInt(parts[2]) || (user.towerFloor || 1);
@@ -1452,7 +1461,8 @@ async function petBattleEngine(interaction, attackerUser, victimUser, mode, betA
 
   if (mode === 'bet' || mode === 'force') {
      attackerUser.pvpCount += 1;
-     await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $set: { pvpCount: attackerUser.pvpCount, pvpTime: attackerUser.pvpTime }});
+     attackerUser.exp = (attackerUser.exp || 0) + 10; // Tăng thêm exp khi tham gia PvP
+     await User.updateOne({ userId: attackerUser.userId, guildId: attackerUser.guildId }, { $set: { pvpCount: attackerUser.pvpCount, pvpTime: attackerUser.pvpTime, exp: attackerUser.exp }});
   }
 
   if (mode === 'bet') {

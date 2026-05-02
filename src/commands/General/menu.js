@@ -42,7 +42,7 @@ function buildMenu(user, member, role, category = 'home') {
     { label: '🛒 Thương Mại', description: 'Chợ NPC và Shop người chơi', value: 'trade' },
     { label: '💳 Ngân Hàng', description: 'Chuyển khoản và vay nợ', value: 'bank' },
     { label: '🐾 Trại Thú Cưng', description: 'Quản lý thú cưng, trang bị và kỹ năng', value: 'pets' },
-    { label: '🏰 Tháp Aincrad', description: 'Khiêu chiến hộ vệ tháp để nhận thưởng', value: 'tower' },
+    { label: '⚔️ Khu Vực Ải', description: 'Khiêu chiến Rừng Tân Binh và Tháp Aincrad', value: 'dungeon' },
     { label: '🎮 Xã Hội & Giải Trí', description: 'Tương tác, PvP, bảng xếp hạng', value: 'social' },
   ];
 
@@ -156,7 +156,7 @@ function buildMenu(user, member, role, category = 'home') {
   }
   else if (category === 'bank') {
     embed = bakeryEmbed('💳 Ngân Hàng', `Quản lý tài chính, chuyển khoản và vay nợ.`, COLORS.success);
-    btnRows.push(row(btn('menu:vay:open', '💳 Tự Động Vay / Trả', 'Primary')));
+    btnRows.push(row(btn('menu:vay:open', '💳 Tự Động Vay / Trả', 'Primary'), btn('chuyentien:open', '💸 Chuyển Tiền', 'Success')));
   }
   else if (category === 'social') {
     embed = bakeryEmbed('🎮 Xã Hội & Giải Trí', `Tương tác với bạn bè, Thách đấu và Cạnh tranh thứ hạng.\n\n🔽 *Chọn một người chơi bên dưới để thao tác:*`, COLORS.warning);
@@ -344,8 +344,8 @@ module.exports = {
         interaction.customId = 'pet:open';
         return interaction.client.commands.get('pet').handleComponent(interaction);
       }
-      if (category === 'tower') {
-        interaction.customId = 'pet:tower';
+      if (category === 'dungeon') {
+        interaction.customId = 'pet:dungeon_menu';
         return interaction.client.commands.get('pet').handleComponent(interaction);
       }
 
@@ -356,6 +356,7 @@ module.exports = {
       try {
         return await interaction.update(buildMenu(user, interaction.member || interaction.user, role, category));
       } catch (e) {
+        console.error(`[❌ DEBUG MENU ERROR] Lỗi điều hướng menu sang category '${category}':`, e.message);
         if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
         throw e;
       }
@@ -368,6 +369,7 @@ module.exports = {
       try {
         return await interaction.update(buildMenu(user, interaction.member || interaction.user, role, 'home'));
       } catch (e) {
+        console.error(`[❌ DEBUG MENU ERROR] Lỗi khi quay về 'home':`, e.message);
         if (e.code === 40060 || e.code === 10062 || e.code === 'InteractionAlreadyReplied') return;
         throw e;
       }
@@ -401,9 +403,10 @@ module.exports = {
         embeds: [embed],
         components: [
           row(navMenu),
-        row(btn(`menu:battle_bet:${targetId}`, '⚔️ Thách Đấu (Cược)', 'Primary'), btn(`menu:battle_force:${targetId}`, '🏴‍☠️ Úp Sọt (Cướp)', 'Danger')),
-        row(btn(`sneak:do:${targetId}`, '🐾 Trộm Vườn', 'Secondary'), btn(`menu:gift:open:${targetId}`, '🎁 Tặng Đồ', 'Success')),
-          row(btn('menu:section:social', '◀ Quay Lại Xã Hội', 'Secondary'), btn('menu:close', '❌ Đóng', 'Danger')),
+          row(btn(`menu:battle_bet:${targetId}`, '⚔️ Thách Đấu (Cược)', 'Primary'), btn(`menu:battle_force:${targetId}`, '🏴‍☠️ Úp Sọt (Cướp)', 'Danger')),
+          row(btn(`sneak:do:${targetId}`, '🐾 Trộm Vườn', 'Secondary'), btn(`menu:transfer_open:${targetId}`, '💸 Chuyển Tiền', 'Success')),
+          row(btn(`menu:gift:open:${targetId}`, '🎁 Tặng Đồ', 'Success'), btn('menu:section:social', '◀ Quay Lại Xã Hội', 'Secondary')),
+          row(btn('menu:close', '❌ Đóng', 'Danger')),
         ],
       });
     }
@@ -453,6 +456,20 @@ module.exports = {
         embeds: [bakeryEmbed('🏴‍☠️ Úp Sọt Kẻ Thù', msg, result.isWin ? COLORS.success : COLORS.error)],
         components: [backRow],
       });
+    }
+
+    // ── Chuyển Tiền ──────────────────────────────────────────────────────────
+    if (action === 'transfer_open') {
+      const targetId = parts[2];
+      const modal = new ModalBuilder()
+        .setCustomId(`menu:modal:transfer:${targetId}`)
+        .setTitle('💸 Chuyển Khoản Xu');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('amount').setLabel('Số xu muốn chuyển').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Ví dụ: 5000')
+        )
+      );
+      return interaction.showModal(modal);
     }
 
     // ── Ngân Hàng Tự Động ──────────────────────────────────────────────────
@@ -565,17 +582,13 @@ module.exports = {
 
   // ─── Modal Handlers (Dev Panel) ─────────────────────────────────────────────
   async handleModal(interaction) {
-    if (!isDev(interaction.user.id)) {
-      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập bị từ chối!')], flags: MessageFlags.Ephemeral });
-    }
-
-    const sub      = interaction.customId.split(':')[2]; // menu:modal:give → 'give'
-    const backBtn  = row(btn('menu:section:dev', '◀ Dev Panel', 'Secondary'));
+    const parts = interaction.customId.split(':');
+    const sub   = parts[2]; // menu:modal:give → 'give'
 
     // ── PvP: Thực thi Thách Đấu (Bet) ─────────────────────────────────────────
-    if (interaction.customId.startsWith('menu:modal:battle_bet:')) {
+    if (sub === 'battle_bet') {
       await interaction.deferUpdate();
-      const targetId = interaction.customId.split(':')[3];
+      const targetId = parts[3];
       const amount = parseInt(interaction.fields.getTextInputValue('bet_amount'));
       const backRow  = row(btn('menu:home', '◀ Menu', 'Secondary'));
 
@@ -611,10 +624,37 @@ module.exports = {
       });
     }
 
+    // ── Chuyển Tiền (Transfer) ───────────────────────────────────────────────
+    if (sub === 'transfer') {
+      await interaction.deferUpdate();
+      const targetId = parts[3];
+      const amount = parseInt(interaction.fields.getTextInputValue('amount'));
+      const backRow = row(btn('menu:home', '◀ Menu', 'Secondary'));
+
+      if (isNaN(amount) || amount <= 0) return interaction.editReply({ embeds: [errorEmbed('Số xu không hợp lệ!')], components: [backRow] });
+
+      const sender = await User.findOne({ userId: interaction.user.id, guildId: interaction.guildId });
+      if (sender.coins < amount) return interaction.editReply({ embeds: [errorEmbed(`Bạn không đủ xu! Bạn chỉ có **${sender.coins.toLocaleString('vi-VN')}** xu.`)], components: [backRow] });
+
+      const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetId } }, { upsert: true, new: true });
+      
+      sender.coins -= amount;
+      receiver.coins += amount;
+      
+      // Thêm EXP cho người chuyển để có thêm cách tăng cấp
+      sender.exp += Math.max(1, Math.floor(amount / 1000));
+
+      await Promise.all([sender.save(), receiver.save()]);
+
+      return interaction.editReply({
+        embeds: [successEmbed('💸 Chuyển Khoản Thành Công!', `Đã chuyển **${amount.toLocaleString('vi-VN')} xu** cho <@${targetId}>.\nBạn nhận được **+${Math.max(1, Math.floor(amount / 1000))} EXP** vì đã hào phóng!\nSố dư còn lại: **${sender.coins.toLocaleString('vi-VN')} xu**.`)],
+        components: [backRow]
+      });
+    }
+
     // ── Tặng Quà (Gift) Modal ────────────────────────────────────────────────
-    if (interaction.customId.startsWith('menu:modal:gift_')) {
-        const parts = interaction.customId.split(':');
-        const type = parts[2];
+    if (sub.startsWith('gift_')) {
+        const type = sub;
         const amount = parseInt(interaction.fields.getTextInputValue('amount'));
         
         if (isNaN(amount) || amount <= 0) return interaction.reply({ embeds: [errorEmbed('Số lượng không hợp lệ!')], flags: MessageFlags.Ephemeral });
@@ -626,8 +666,12 @@ module.exports = {
             const receiver = await User.findOneAndUpdate({ userId: targetId, guildId: interaction.guildId }, { $setOnInsert: { username: targetId } }, { upsert: true, new: true });
             sender.crystals -= amount;
             receiver.crystals = (receiver.crystals || 0) + amount;
+            
+            // Tặng 10 EXP cho mỗi tinh thể
+            sender.exp += amount * 10;
+
             await Promise.all([sender.save(), receiver.save()]);
-            return interaction.reply({ embeds: [successEmbed('🎁 Tặng Quà Thành Công!', `Đã tặng **${amount} 💎 Tinh Thể** cho <@${targetId}>.`)], flags: MessageFlags.Ephemeral });
+            return interaction.reply({ embeds: [successEmbed('🎁 Tặng Quà Thành Công!', `Đã tặng **${amount} 💎 Tinh Thể** cho <@${targetId}>.\nNhận được **+${amount * 10} EXP**!`)], flags: MessageFlags.Ephemeral });
         }
         
         if (type === 'gift_item') {
@@ -644,10 +688,22 @@ module.exports = {
             if (!receiver[rCollectionName]) receiver[rCollectionName] = new Map();
             receiver[rCollectionName].set(itemId, (receiver[rCollectionName].get(itemId) || 0) + amount);
             receiver.markModified(rCollectionName);
+            
+            // Thêm chút EXP
+            sender.exp += amount * 5;
+
             await Promise.all([sender.save(), receiver.save()]);
-            return interaction.reply({ embeds: [successEmbed('🎁 Tặng Quà Thành Công!', `Đã tặng **${amount}x ${ref[itemId].emoji} ${ref[itemId].name}** cho <@${targetId}>.`)], flags: MessageFlags.Ephemeral });
+            return interaction.reply({ embeds: [successEmbed('🎁 Tặng Quà Thành Công!', `Đã tặng **${amount}x ${ref[itemId].emoji} ${ref[itemId].name}** cho <@${targetId}>.\nNhận được **+${amount * 5} EXP**!`)], flags: MessageFlags.Ephemeral });
         }
+        return;
     }
+
+    // ─── Dev Panel Modals ───────────────────────────────────────────────────
+    if (!isDev(interaction.user.id)) {
+      return interaction.reply({ embeds: [errorEmbed('🔒 Truy cập bị từ chối!')], flags: MessageFlags.Ephemeral });
+    }
+
+    const backBtn  = row(btn('menu:section:dev', '◀ Dev Panel', 'Secondary'));
 
     // Giải mã target từ tất cả modal trừ broadcast
     let targetId = null;

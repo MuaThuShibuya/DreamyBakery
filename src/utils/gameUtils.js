@@ -109,7 +109,7 @@ function expForLevel(lvl) {
 function calcLevel(exp) {
   let lvl = 1;
   while (expForLevel(lvl) <= exp) lvl++;
-  return Math.max(1, lvl - 1); // Tối thiểu cấp 1 dù EXP = 0
+  return lvl;
 }
 
 /**
